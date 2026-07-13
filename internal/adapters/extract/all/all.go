@@ -10,9 +10,8 @@ package all
 import (
 	_ "officegrep/internal/adapters/extract/pptx"
 	_ "officegrep/internal/adapters/extract/text"
-	// The following office-format plugins are implemented on separate
-	// branches by other agents and will be blank-imported here once
-	// merged:
+	_ "officegrep/internal/adapters/extract/xlsx"
+	// The docx plugin is implemented on a separate branch by another
+	// agent and will be blank-imported here once merged:
 	//   _ "officegrep/internal/adapters/extract/docx"
-	//   _ "officegrep/internal/adapters/extract/xlsx"
 )
