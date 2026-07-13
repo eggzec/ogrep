@@ -23,6 +23,13 @@ import (
 	"officegrep/internal/registry"
 )
 
+// version is the officegrep release version. It defaults to "dev" for
+// local/`go build`/`go run` invocations that don't set it explicitly.
+// goreleaser overrides it at build time via -ldflags
+// "-X main.version=vX.Y.Z" (see .goreleaser.yaml), pinning each release
+// artifact to the git tag it was built from.
+var version = "dev"
+
 const longHelp = `officegrep searches for a pattern in files, including MS Office
 documents (docx/pptx/xlsx) and plain text, streaming through each
 document instead of loading it fully into memory.
@@ -126,6 +133,15 @@ func newRootCmd() *cobra.Command {
 			return runSearch(cmd, args, flags, cfg)
 		},
 	}
+
+	// Setting Version turns on cobra's built-in --version/-v handling
+	// (it prints via SetVersionTemplate and also answers a synthesized
+	// "version" behavior for --version). We use -V rather than cobra's
+	// default -v short flag since -v is already taken here by
+	// --invert-match.
+	rootCmd.Version = version
+	rootCmd.Flags().BoolP("version", "V", false, "print the officegrep version and exit")
+	rootCmd.SetVersionTemplate("officegrep {{.Version}}\n")
 
 	// Leave completion enabled: cobra's built-in "completion" command
 	// (bash/zsh/fish/powershell) is generated automatically as long as
