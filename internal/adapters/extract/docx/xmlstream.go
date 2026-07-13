@@ -50,14 +50,58 @@ func attrValue(t xml.StartElement, localName string) string {
 	return ""
 }
 
+// isDrawingWrapper reports whether localName is an element that can wrap
+// "floating" nested content with its own independent w:p/w:r/w:t
+// structure — most commonly a text box (w:drawing > ... > w:txbxContent
+// > w:p, or the legacy VML equivalent w:pict > v:shape > v:textbox >
+// w:txbxContent > w:p). Content inside one of these must not be allowed
+// to interact with the paragraph/run/table state of whatever paragraph
+// happens to enclose the drawing — see suppressDepth on runTracker.
+func isDrawingWrapper(localName string) bool {
+	return localName == "drawing" || localName == "pict"
+}
+
 // runTracker holds the small bit of state needed to build up the text of
 // one in-progress paragraph while streaming: whether we're currently
 // inside a w:r (run) — which is what makes w:t/w:tab/w:br/w:cr
-// meaningful — and the builder for the paragraph currently open (nil
-// when we're not inside a w:p at all).
+// meaningful — the builder for the paragraph currently open (nil when
+// we're not inside a w:p at all), and suppressDepth, which counts how
+// many nested w:drawing/w:pict wrappers we're currently inside.
+//
+// Word can nest an entire independent w:p/w:r/w:t structure inside a
+// text box, itself reached via w:r > w:drawing > ... > w:txbxContent >
+// w:p. Text boxes are common (flyers, forms, templates), not exotic.
+// Without suppression, the nested w:p's StartElement would blow away
+// the enclosing (real) paragraph's in-progress curPara builder before
+// the enclosing w:p closes, silently discarding its accumulated text,
+// emitting a spurious extra (usually empty) paragraph, and shifting
+// every subsequent paragraph's number by one — silent data loss, not a
+// crash. While suppressDepth > 0, every content-affecting element
+// (p/tbl/tr/tc/r/t/tab/br/cr) is ignored outright: neither curPara nor
+// the table/cell stacks are touched, so the enclosing paragraph's text
+// and the document's paragraph/table numbering come out exactly as if
+// the drawing were never there. (This intentionally means text-box
+// content itself is not extracted as separate searchable text; adding
+// that is possible but out of scope for this fix, which is only about
+// not corrupting the surrounding document.)
 type runTracker struct {
-	inRun   bool
-	curPara *strings.Builder
+	inRun         bool
+	curPara       *strings.Builder
+	suppressDepth int
+}
+
+// suppressed reports whether we're currently inside a w:drawing/w:pict
+// wrapper and should ignore content-affecting elements.
+func (rt *runTracker) suppressed() bool { return rt.suppressDepth > 0 }
+
+// enterDrawing/exitDrawing adjust suppressDepth on w:drawing/w:pict
+// start/end; callers should invoke these unconditionally (regardless of
+// current suppression state) so nested drawings are tracked correctly.
+func (rt *runTracker) enterDrawing() { rt.suppressDepth++ }
+func (rt *runTracker) exitDrawing() {
+	if rt.suppressDepth > 0 {
+		rt.suppressDepth--
+	}
 }
 
 // handleStart processes a StartElement that is one of the "leaf content"
@@ -98,6 +142,17 @@ func (rt *runTracker) handleEnd(t xml.EndElement) {
 		rt.inRun = false
 	}
 }
+
+// A note on OMML math content: embedded equations use m:oMath/
+// m:oMathPara containing m:r/m:t runs, and since Local name stripping
+// discards the namespace prefix, our "r"/"t" handling above matches
+// m:r/m:t exactly the same as w:r/w:t. This was deliberately checked,
+// not just assumed safe: unlike w:txbxContent, OMML never nests a w:p
+// inside m:r, so there's no equivalent of the text-box bug here — an
+// m:r/m:t pair just contributes its literal text to whichever
+// paragraph's builder is currently open, which is the desired behavior
+// (embedded formula text becomes searchable, same as any other run
+// text). No suppression is needed for math content.
 
 // tableState tracks the current row/col cursor for one open w:tbl.
 type tableState struct {
@@ -142,6 +197,13 @@ func extractDocumentBody(f *zip.File, out send) error {
 
 		switch t := tok.(type) {
 		case xml.StartElement:
+			if isDrawingWrapper(t.Name.Local) {
+				rt.enterDrawing()
+				continue
+			}
+			if rt.suppressed() {
+				continue
+			}
 			switch t.Name.Local {
 			case "p":
 				rt.curPara = &strings.Builder{}
@@ -165,6 +227,13 @@ func extractDocumentBody(f *zip.File, out send) error {
 				}
 			}
 		case xml.EndElement:
+			if isDrawingWrapper(t.Name.Local) {
+				rt.exitDrawing()
+				continue
+			}
+			if rt.suppressed() {
+				continue
+			}
 			switch t.Name.Local {
 			case "p":
 				text := ""
@@ -254,6 +323,13 @@ func extractHeaderFooterPart(f *zip.File, label string, out send) error {
 
 		switch t := tok.(type) {
 		case xml.StartElement:
+			if isDrawingWrapper(t.Name.Local) {
+				rt.enterDrawing()
+				continue
+			}
+			if rt.suppressed() {
+				continue
+			}
 			switch t.Name.Local {
 			case "p":
 				rt.curPara = &strings.Builder{}
@@ -263,6 +339,13 @@ func extractHeaderFooterPart(f *zip.File, label string, out send) error {
 				}
 			}
 		case xml.EndElement:
+			if isDrawingWrapper(t.Name.Local) {
+				rt.exitDrawing()
+				continue
+			}
+			if rt.suppressed() {
+				continue
+			}
 			switch t.Name.Local {
 			case "p":
 				text := ""
@@ -326,6 +409,13 @@ func extractFootnoteLike(f *zip.File, elemName string, kind domain.UnitKind, lab
 
 		switch t := tok.(type) {
 		case xml.StartElement:
+			if isDrawingWrapper(t.Name.Local) {
+				rt.enterDrawing()
+				continue
+			}
+			if rt.suppressed() {
+				continue
+			}
 			switch t.Name.Local {
 			case elemName:
 				inItem = true
@@ -345,6 +435,13 @@ func extractFootnoteLike(f *zip.File, elemName string, kind domain.UnitKind, lab
 				}
 			}
 		case xml.EndElement:
+			if isDrawingWrapper(t.Name.Local) {
+				rt.exitDrawing()
+				continue
+			}
+			if rt.suppressed() {
+				continue
+			}
 			switch t.Name.Local {
 			case "p":
 				if inItem && rt.curPara != nil {

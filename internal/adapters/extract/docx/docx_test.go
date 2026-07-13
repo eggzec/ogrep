@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"officegrep/internal/core/domain"
@@ -308,6 +309,74 @@ func TestExtractEmptyParagraphsStillEmitted(t *testing.T) {
 	}
 	if got[1].Text != "" || got[1].Location.Paragraph != 2 {
 		t.Errorf("middle unit = %+v, want blank text at Paragraph 2", got[1])
+	}
+}
+
+// TestExtractTextBoxNestedParagraphDoesNotCorruptEnclosingParagraph is a
+// regression test for a bug found in review: a w:p nested inside a text
+// box (w:r > w:drawing > ... > w:txbxContent > w:p) would clobber the
+// enclosing (real) paragraph's in-progress text before it closed,
+// discarding its content, emitting a spurious extra empty paragraph, and
+// shifting every subsequent paragraph's number by one. The fix
+// suppresses all content-affecting elements (p/tbl/tr/tc/r/t/tab/br/cr)
+// while inside a w:drawing/w:pict wrapper, so the enclosing paragraph's
+// text and the document's paragraph numbering are unaffected by
+// text-box-nested content.
+func TestExtractTextBoxNestedParagraphDoesNotCorruptEnclosingParagraph(t *testing.T) {
+	doc := `<?xml version="1.0" encoding="UTF-8"?><w:document ` + wNS + `><w:body>` +
+		`<w:p><w:r><w:t>before-drawing</w:t>` +
+		`<w:drawing><w:txbxContent><w:p><w:r><w:t>inside-textbox</w:t></w:r></w:p></w:txbxContent></w:drawing>` +
+		`<w:t>after-drawing</w:t></w:r></w:p>` +
+		`<w:p><w:r><w:t>Second real paragraph</w:t></w:r></w:p>` +
+		`</w:body></w:document>`
+	data := buildDocx(t, map[string]string{"word/document.xml": doc})
+
+	got := extractAll(t, data)
+
+	if len(got) != 2 {
+		t.Fatalf("got %d paragraphs, want 2 (textbox content must not add a spurious paragraph): %+v", len(got), got)
+	}
+
+	wantFirst := "before-drawingafter-drawing"
+	if got[0].Text != wantFirst {
+		t.Errorf("paragraph 1 text = %q, want %q (textbox-nested content must not corrupt the enclosing paragraph)", got[0].Text, wantFirst)
+	}
+	if got[0].Location.Paragraph != 1 || got[0].Location.Human != "Paragraph 1" {
+		t.Errorf("paragraph 1 location = %+v, want Paragraph 1", got[0].Location)
+	}
+	if strings.Contains(got[0].Text, "inside-textbox") {
+		t.Errorf("paragraph 1 text = %q must not contain the textbox's own nested content", got[0].Text)
+	}
+
+	wantSecond := "Second real paragraph"
+	if got[1].Text != wantSecond {
+		t.Errorf("paragraph 2 text = %q, want %q", got[1].Text, wantSecond)
+	}
+	if got[1].Location.Paragraph != 2 || got[1].Location.Human != "Paragraph 2" {
+		t.Errorf("paragraph 2 location = %+v, want Paragraph 2 (numbering must not shift due to the nested paragraph)", got[1].Location)
+	}
+}
+
+// TestExtractNestedDrawingDepthTracked exercises a doubly-nested drawing
+// wrapper (a w:pict inside a w:drawing, an unusual but not impossible
+// shape) to confirm suppressDepth is a counter, not a boolean: the
+// enclosing paragraph's text must survive intact even when the
+// suppressed region itself contains another wrapper.
+func TestExtractNestedDrawingDepthTracked(t *testing.T) {
+	doc := `<?xml version="1.0" encoding="UTF-8"?><w:document ` + wNS + `><w:body>` +
+		`<w:p><w:r><w:t>outer-before</w:t>` +
+		`<w:drawing><w:pict><w:txbxContent><w:p><w:r><w:t>nested</w:t></w:r></w:p></w:txbxContent></w:pict></w:drawing>` +
+		`<w:t>outer-after</w:t></w:r></w:p>` +
+		`</w:body></w:document>`
+	data := buildDocx(t, map[string]string{"word/document.xml": doc})
+
+	got := extractAll(t, data)
+	if len(got) != 1 {
+		t.Fatalf("got %d paragraphs, want 1: %+v", len(got), got)
+	}
+	want := "outer-beforeouter-after"
+	if got[0].Text != want {
+		t.Errorf("text = %q, want %q", got[0].Text, want)
 	}
 }
 
