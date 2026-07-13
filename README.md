@@ -13,6 +13,46 @@ a regular expression by default; use `-F`/`--fixed-strings` for a
 literal search. Run `ogrep --help` for the full flag reference
 (context lines, `--type` format filtering, JSON output, and more).
 
+## Usage examples
+
+Search a directory tree (plain text and any `.docx`/`.pptx`/`.xlsx`
+files in it) case-insensitively:
+
+```
+$ ogrep -i budget .
+todo.txt:line 1
+Finish the quarterly budget review
+notes/meeting.txt:line 1
+Budget approved for Q3.
+notes/meeting.txt:line 2
+Next steps: circulate the budget doc.
+```
+
+Each match is printed as a `path:location` header line followed by the
+matched text — `location` is format-specific (`line N` for text,
+`Paragraph N` for docx, `Slide N (Shape "...")` for pptx, `Sheet1!B45`
+for xlsx). Add `-c`/`--count` to print just a match count per file
+instead:
+
+```
+$ ogrep -i -c budget .
+todo.txt:1
+notes/meeting.txt:2
+```
+
+Restrict the search to one document format regardless of file
+extension, and read JSON instead of terminal output:
+
+```
+$ ogrep --type xlsx --json total .
+```
+
+By default, `.gitignore` and `.ogrepignore` files are respected the
+same way git respects `.gitignore` — nested files layer, with a
+deeper file's rules (including negation with `!`) overriding a
+shallower one's. Pass `--no-ignore` to search everything anyway,
+including files those ignore rules would normally exclude.
+
 ## Installing
 
 ### From a release archive
