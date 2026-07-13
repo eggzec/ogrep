@@ -1,4 +1,4 @@
-# goreleaser configuration for officegrep.
+# goreleaser configuration for ogrep.
 #
 # This targets the goreleaser v2 config schema (v1 configs are
 # deprecated as of goreleaser v2). See https://goreleaser.com for the
@@ -15,16 +15,16 @@
 #   goreleaser release --clean
 version: 2
 
-project_name: officegrep
+project_name: ogrep
 
 before:
   hooks:
     - go mod tidy
 
 builds:
-  - id: officegrep
-    main: ./cmd/officegrep
-    binary: officegrep
+  - id: ogrep
+    main: ./cmd/ogrep
+    binary: ogrep
     # Statically-linked, no-libc binaries: CGO must be off for every
     # target so the same build works whether or not a C toolchain is
     # even installed on the build host, and so the resulting binary has
@@ -47,9 +47,9 @@ builds:
       - -X main.version={{.Version}}
 
 archives:
-  - id: officegrep
+  - id: ogrep
     ids:
-      - officegrep
+      - ogrep
     # Explicit rather than relying on goreleaser's default (which also
     # happens to be zip-for-windows/tar.gz-otherwise) so the intent is
     # documented here rather than left implicit.
