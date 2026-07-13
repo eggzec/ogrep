@@ -1,16 +1,16 @@
-# officegrep
+# ogrep
 
 A ripgrep-style command-line search tool that searches plain text files
 as well as MS Office documents (`.docx`, `.pptx`, `.xlsx`), streaming
 through each document instead of loading it fully into memory.
 
 ```
-officegrep [flags] PATTERN [PATH...]
+ogrep [flags] PATTERN [PATH...]
 ```
 
 If no `PATH` is given, the current directory is searched. `PATTERN` is
 a regular expression by default; use `-F`/`--fixed-strings` for a
-literal search. Run `officegrep --help` for the full flag reference
+literal search. Run `ogrep --help` for the full flag reference
 (context lines, `--type` format filtering, JSON output, and more).
 
 ## Installing
@@ -20,8 +20,19 @@ literal search. Run `officegrep --help` for the full flag reference
 Prebuilt, statically-linked binaries (no runtime dependencies) for
 Linux, macOS, and Windows on amd64/arm64 are attached to each
 [release](../../releases) once releases are being published. Download
-the archive for your platform, extract it, and put the `officegrep`
+the archive for your platform, extract it, and put the `ogrep`
 binary on your `PATH`.
+
+### With `go install`
+
+```sh
+go install github.com/laraibg786/ogrep/cmd/ogrep@latest
+```
+
+This only works once this repository has actually been pushed to
+`github.com/laraibg786/ogrep`, which has not happened yet as of this
+writing — the module path is set up in anticipation of that, but there
+is no remote to install from today.
 
 ### From source
 
@@ -29,25 +40,25 @@ Requires Go (see `go.mod` for the minimum version). From the repo
 root:
 
 ```sh
-go build -o officegrep ./cmd/officegrep
+go build -o ogrep ./cmd/ogrep
 ```
 
-This produces an `officegrep` binary in the current directory. Since
+This produces an `ogrep` binary in the current directory. Since
 the project has no CGO dependencies, a plain build is already static;
 you can drop `CGO_ENABLED=0` in explicitly for a fully hermetic build
 that doesn't depend on a local C toolchain being available at all:
 
 ```sh
-CGO_ENABLED=0 go build -o officegrep ./cmd/officegrep
+CGO_ENABLED=0 go build -o ogrep ./cmd/ogrep
 ```
 
 Check the installed version with:
 
 ```sh
-officegrep --version
+ogrep --version
 ```
 
-(A source build reports `officegrep dev` since the version string is
+(A source build reports `ogrep dev` since the version string is
 only stamped in by the release process below.)
 
 ## Releasing (maintainers)
@@ -79,7 +90,7 @@ goreleaser release --clean
 ```
 
 goreleaser picks the version up from the git tag and stamps it into
-each binary (`officegrep --version`) via ldflags.
+each binary (`ogrep --version`) via ldflags.
 
 Once this repo has a real remote on GitHub, pushing a `vX.Y.Z`-shaped
 tag (`git push --tags` above) also triggers `.github/workflows/
