@@ -1,4 +1,4 @@
-// Package app implements officegrep's core use case: a parallel
+// Package app implements ogrep's core use case: a parallel
 // worker-pool search that ties together the FileWalker, the format
 // Registry, extractor plugins, a compiled Matcher, and an OutputSink.
 package app
@@ -12,8 +12,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"officegrep/internal/core/domain"
-	"officegrep/internal/core/ports"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/ports"
 )
 
 // ExtractorLookup resolves the DocumentExtractor for a given file. In
@@ -142,20 +142,20 @@ func (o *SearchOrchestrator) Run(ctx context.Context, pattern string, roots []st
 func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matcher ports.Matcher, opts domain.SearchOptions, stats *Stats, stderr io.Writer) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Fprintf(stderr, "officegrep: warning: panic while searching %s: %v\n", path, r)
+			fmt.Fprintf(stderr, "ogrep: warning: panic while searching %s: %v\n", path, r)
 		}
 	}()
 
 	f, err := os.Open(path)
 	if err != nil {
-		fmt.Fprintf(stderr, "officegrep: warning: %s: %v\n", path, err)
+		fmt.Fprintf(stderr, "ogrep: warning: %s: %v\n", path, err)
 		return
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		fmt.Fprintf(stderr, "officegrep: warning: %s: %v\n", path, err)
+		fmt.Fprintf(stderr, "ogrep: warning: %s: %v\n", path, err)
 		return
 	}
 	size := info.Size()
@@ -295,7 +295,7 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 	fileCancel()
 
 	if err, ok := <-extractErrc; ok && err != nil {
-		fmt.Fprintf(stderr, "officegrep: warning: %s: %v\n", path, err)
+		fmt.Fprintf(stderr, "ogrep: warning: %s: %v\n", path, err)
 	}
 
 	if len(matches) == 0 {
@@ -309,12 +309,12 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 	if !opts.FilesWithMatches && !opts.CountOnly {
 		for _, m := range matches {
 			if werr := o.Sink.WriteMatch(m); werr != nil {
-				fmt.Fprintf(stderr, "officegrep: warning: writing match for %s: %v\n", path, werr)
+				fmt.Fprintf(stderr, "ogrep: warning: writing match for %s: %v\n", path, werr)
 			}
 		}
 	}
 	if werr := o.Sink.WriteFileSummary(path, realMatchCount); werr != nil {
-		fmt.Fprintf(stderr, "officegrep: warning: writing summary for %s: %v\n", path, werr)
+		fmt.Fprintf(stderr, "ogrep: warning: writing summary for %s: %v\n", path, werr)
 	}
 	o.writeMu.Unlock()
 }

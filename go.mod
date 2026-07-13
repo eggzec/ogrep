@@ -1,4 +1,4 @@
-module officegrep
+module github.com/laraibg786/ogrep
 
 go 1.26.5
 

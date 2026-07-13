@@ -7,7 +7,7 @@ package docx_test
 // docx_test (external) package specifically so it only exercises the
 // same public surface any other caller of the plugin would use:
 // registry.Registry.Register + registry.Registry.For, wired into
-// app.SearchOrchestrator exactly as cmd/officegrep does in production.
+// app.SearchOrchestrator exactly as cmd/ogrep does in production.
 
 import (
 	"archive/zip"
@@ -19,12 +19,12 @@ import (
 	"sync"
 	"testing"
 
-	"officegrep/internal/adapters/extract/docx"
-	"officegrep/internal/adapters/match"
-	"officegrep/internal/adapters/walk"
-	"officegrep/internal/core/app"
-	"officegrep/internal/core/domain"
-	"officegrep/internal/registry"
+	"github.com/laraibg786/ogrep/internal/adapters/extract/docx"
+	"github.com/laraibg786/ogrep/internal/adapters/match"
+	"github.com/laraibg786/ogrep/internal/adapters/walk"
+	"github.com/laraibg786/ogrep/internal/core/app"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
 // fakeSink collects matches in memory, mirroring the one in

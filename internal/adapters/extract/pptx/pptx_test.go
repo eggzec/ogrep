@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"testing"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 func TestSniffAcceptsValidPptx(t *testing.T) {

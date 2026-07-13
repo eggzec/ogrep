@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 func TestSniffRejectsBinary(t *testing.T) {

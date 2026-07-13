@@ -12,13 +12,13 @@ import (
 	"sync"
 	"testing"
 
-	"officegrep/internal/adapters/extract/text"
-	"officegrep/internal/adapters/match"
-	"officegrep/internal/adapters/walk"
-	"officegrep/internal/core/app"
-	"officegrep/internal/core/domain"
-	"officegrep/internal/core/ports"
-	"officegrep/internal/registry"
+	"github.com/laraibg786/ogrep/internal/adapters/extract/text"
+	"github.com/laraibg786/ogrep/internal/adapters/match"
+	"github.com/laraibg786/ogrep/internal/adapters/walk"
+	"github.com/laraibg786/ogrep/internal/core/app"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/ports"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
 // fakeSink collects matches in memory so tests can assert on them

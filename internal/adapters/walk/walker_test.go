@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 func writeFile(t *testing.T, path, content string) {

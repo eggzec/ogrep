@@ -1,4 +1,4 @@
-// Command officegrep is an rg-style CLI search tool specialized for
+// Command ogrep is an rg-style CLI search tool specialized for
 // searching inside MS Office files (docx/pptx/xlsx) as well as plain
 // text.
 package main
@@ -13,31 +13,31 @@ import (
 	"github.com/spf13/cobra"
 	_ "go.uber.org/automaxprocs" // sets GOMAXPROCS from the cgroup CPU quota when running in a container/pod, so runtime.NumCPU()-based defaults (walker/orchestrator thread counts) don't oversubscribe; a documented no-op outside a container.
 
-	_ "officegrep/internal/adapters/extract/all"
-	"officegrep/internal/adapters/match"
-	"officegrep/internal/adapters/output"
-	"officegrep/internal/adapters/walk"
-	"officegrep/internal/adapters/xdg"
-	"officegrep/internal/core/app"
-	"officegrep/internal/core/domain"
-	"officegrep/internal/core/ports"
-	"officegrep/internal/registry"
+	_ "github.com/laraibg786/ogrep/internal/adapters/extract/all"
+	"github.com/laraibg786/ogrep/internal/adapters/match"
+	"github.com/laraibg786/ogrep/internal/adapters/output"
+	"github.com/laraibg786/ogrep/internal/adapters/walk"
+	"github.com/laraibg786/ogrep/internal/adapters/xdg"
+	"github.com/laraibg786/ogrep/internal/core/app"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/ports"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
-// version is the officegrep release version. It defaults to "dev" for
+// version is the ogrep release version. It defaults to "dev" for
 // local/`go build`/`go run` invocations that don't set it explicitly.
 // goreleaser overrides it at build time via -ldflags
 // "-X main.version=vX.Y.Z" (see .goreleaser.yaml), pinning each release
 // artifact to the git tag it was built from.
 var version = "dev"
 
-const longHelp = `officegrep searches for a pattern in files, including MS Office
+const longHelp = `ogrep searches for a pattern in files, including MS Office
 documents (docx/pptx/xlsx) and plain text, streaming through each
 document instead of loading it fully into memory.
 
 Usage:
 
-  officegrep [flags] PATTERN [PATH...]
+  ogrep [flags] PATTERN [PATH...]
 
 If no PATH is given, the current directory is searched. PATTERN is a
 regular expression by default; use -F/--fixed-strings for a literal
@@ -52,8 +52,8 @@ text), independent of file extension.
 Config file:
 
   An optional TOML config file is read from
-  $XDG_CONFIG_HOME/officegrep/config.toml (typically
-  ~/.config/officegrep/config.toml) to seed default values for --color,
+  $XDG_CONFIG_HOME/ogrep/config.toml (typically
+  ~/.config/ogrep/config.toml) to seed default values for --color,
   --threads, and extra ignore globs. Command-line flags always override
   the config file.
 
@@ -62,13 +62,13 @@ Shell completion:
   This build includes cobra's built-in "completion" subcommand. Install
   it, e.g.:
 
-    bash: officegrep completion bash > \
-            "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/officegrep"
-    zsh:  officegrep completion zsh > "/path/on/\$fpath/_officegrep"
-    fish: officegrep completion fish > \
-            "$HOME/.config/fish/completions/officegrep.fish"
+    bash: ogrep completion bash > \
+            "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/ogrep"
+    zsh:  ogrep completion zsh > "/path/on/\$fpath/_ogrep"
+    fish: ogrep completion fish > \
+            "$HOME/.config/fish/completions/ogrep.fish"
 
-  Run "officegrep completion --help" for full details.
+  Run "ogrep completion --help" for full details.
 `
 
 func main() {
@@ -121,7 +121,7 @@ func newRootCmd() *cobra.Command {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:           "officegrep PATTERN [PATH...]",
+		Use:           "ogrep PATTERN [PATH...]",
 		Short:         "Search plain text and MS Office documents for a pattern",
 		Long:          longHelp,
 		Args:          cobra.MinimumNArgs(1),
@@ -129,7 +129,7 @@ func newRootCmd() *cobra.Command {
 		SilenceErrors: false,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cfgErr != nil {
-				fmt.Fprintf(os.Stderr, "officegrep: warning: reading config: %v\n", cfgErr)
+				fmt.Fprintf(os.Stderr, "ogrep: warning: reading config: %v\n", cfgErr)
 			}
 			return runSearch(cmd, args, flags, cfg)
 		},
@@ -141,8 +141,8 @@ func newRootCmd() *cobra.Command {
 	// default -v short flag since -v is already taken here by
 	// --invert-match.
 	rootCmd.Version = version
-	rootCmd.Flags().BoolP("version", "V", false, "print the officegrep version and exit")
-	rootCmd.SetVersionTemplate("officegrep {{.Version}}\n")
+	rootCmd.Flags().BoolP("version", "V", false, "print the ogrep version and exit")
+	rootCmd.SetVersionTemplate("ogrep {{.Version}}\n")
 
 	// Leave completion enabled: cobra's built-in "completion" command
 	// (bash/zsh/fish/powershell) is generated automatically as long as
@@ -161,7 +161,7 @@ func newRootCmd() *cobra.Command {
 
 	rootCmd.Flags().StringArrayVar(&flags.includeGlobs, "include", nil, "only search files matching this glob (repeatable)")
 	rootCmd.Flags().StringArrayVar(&flags.excludeGlobs, "exclude", nil, "skip files matching this glob (repeatable)")
-	rootCmd.Flags().BoolVar(&flags.noIgnore, "no-ignore", false, "don't respect .gitignore/.officegrepignore files")
+	rootCmd.Flags().BoolVar(&flags.noIgnore, "no-ignore", false, "don't respect .gitignore/.ogrepignore files")
 	rootCmd.Flags().StringArrayVar(&flags.types, "type", nil, "only search files of this format, e.g. docx, pptx, xlsx, text (repeatable)")
 
 	rootCmd.Flags().BoolVarP(&flags.filesWithMatches, "files-with-matches", "l", false, "print only the paths of files with a match, one per line")

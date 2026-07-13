@@ -1,4 +1,4 @@
-// Package domain contains the core value types shared across officegrep:
+// Package domain contains the core value types shared across ogrep:
 // the text units extracted from documents, the locations that describe
 // where a piece of text came from, and the matches produced by searching
 // that text. These types are the stable contract between the extraction
@@ -112,7 +112,7 @@ type Match struct {
 }
 
 // SearchOptions carries all user-facing search configuration. Not every
-// field is wired up by the v1 CLI (see cmd/officegrep), but the field is
+// field is wired up by the v1 CLI (see cmd/ogrep), but the field is
 // present so ports/adapters have a stable place to read it from once a
 // later phase adds the corresponding flag.
 type SearchOptions struct {

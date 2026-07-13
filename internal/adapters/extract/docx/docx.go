@@ -62,8 +62,8 @@ import (
 	"strconv"
 	"strings"
 
-	"officegrep/internal/core/domain"
-	"officegrep/internal/registry"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
 // Extractor implements ports.DocumentExtractor for WordprocessingML

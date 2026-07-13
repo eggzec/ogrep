@@ -8,7 +8,7 @@ import (
 	"io"
 	"strconv"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // extractSheet streams one worksheet part (xl/worksheets/sheetN.xml),

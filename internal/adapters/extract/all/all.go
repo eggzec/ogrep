@@ -8,8 +8,8 @@
 package all
 
 import (
-	_ "officegrep/internal/adapters/extract/docx"
-	_ "officegrep/internal/adapters/extract/pptx"
-	_ "officegrep/internal/adapters/extract/text"
-	_ "officegrep/internal/adapters/extract/xlsx"
+	_ "github.com/laraibg786/ogrep/internal/adapters/extract/docx"
+	_ "github.com/laraibg786/ogrep/internal/adapters/extract/pptx"
+	_ "github.com/laraibg786/ogrep/internal/adapters/extract/text"
+	_ "github.com/laraibg786/ogrep/internal/adapters/extract/xlsx"
 )

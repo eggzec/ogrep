@@ -8,7 +8,7 @@ import (
 	"io"
 	"strings"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // shapeCtx tracks one open <p:sp> element while streaming a slide or

@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // buildLargeTree creates a synthetic directory tree with numFiles files

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // vcsDirs are directories skipped by default, regardless of ignore

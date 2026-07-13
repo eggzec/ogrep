@@ -12,7 +12,7 @@ import (
 	"context"
 	"io"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // DocumentExtractor knows how to recognize and extract text from one

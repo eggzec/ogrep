@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"io"
 
-	"officegrep/internal/core/domain"
-	"officegrep/internal/registry"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
 // presentationPath is the part that both confirms this is a pptx

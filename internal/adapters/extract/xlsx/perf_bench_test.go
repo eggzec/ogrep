@@ -22,7 +22,7 @@ import (
 	"testing"
 	"time"
 
-	"officegrep/internal/adapters/extract/xlsx"
+	"github.com/laraibg786/ogrep/internal/adapters/extract/xlsx"
 )
 
 // buildXlsxTB is a copy of fixtures_test.go's buildXlsx, retyped to

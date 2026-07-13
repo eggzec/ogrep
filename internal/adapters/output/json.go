@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // JSON is a JSON-lines OutputSink: one JSON object per match, suitable

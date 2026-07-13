@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"officegrep/internal/core/domain"
-	"officegrep/internal/core/ports"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/ports"
 )
 
 // regexMetaChars mirrors the set of bytes that give a string special

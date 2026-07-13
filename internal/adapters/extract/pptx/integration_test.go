@@ -8,11 +8,11 @@ import (
 	"sync"
 	"testing"
 
-	"officegrep/internal/adapters/match"
-	"officegrep/internal/adapters/walk"
-	"officegrep/internal/core/app"
-	"officegrep/internal/core/domain"
-	"officegrep/internal/registry"
+	"github.com/laraibg786/ogrep/internal/adapters/match"
+	"github.com/laraibg786/ogrep/internal/adapters/walk"
+	"github.com/laraibg786/ogrep/internal/core/app"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
 // fakeSink collects matches in memory, mirroring the one in

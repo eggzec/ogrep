@@ -3,7 +3,7 @@ package match
 import (
 	"regexp"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // regexpMatcher wraps the stdlib regexp package (RE2 semantics: linear

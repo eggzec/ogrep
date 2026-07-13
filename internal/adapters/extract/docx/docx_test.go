@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"officegrep/internal/core/domain"
-	"officegrep/internal/registry"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
 // buildDocx assembles a minimal, but real, in-memory zip archive with

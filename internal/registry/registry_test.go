@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // fakeExtractor is a minimal ports.DocumentExtractor for testing

@@ -3,7 +3,7 @@ package match
 import (
 	"testing"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 func spansEqual(a, b []domain.Span) bool {

@@ -16,8 +16,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"officegrep/internal/core/domain"
-	"officegrep/internal/registry"
+	"github.com/laraibg786/ogrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/registry"
 )
 
 // sniffWindow is the number of leading bytes inspected to decide whether

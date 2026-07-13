@@ -18,7 +18,7 @@ import (
 	"strings"
 	"sync"
 
-	"officegrep/internal/core/ports"
+	"github.com/laraibg786/ogrep/internal/core/ports"
 )
 
 // extHint lets an extractor advertise which file extensions it is
@@ -105,7 +105,7 @@ func hasExt(exts []string, ext string) bool {
 }
 
 // Default is the process-wide registry that self-registering extractor
-// plugins add themselves to via init(). cmd/officegrep and the
+// plugins add themselves to via init(). cmd/ogrep and the
 // orchestrator use this instance unless a test constructs its own via
 // New().
 var Default = New()

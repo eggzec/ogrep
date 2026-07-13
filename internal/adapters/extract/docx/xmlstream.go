@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // send is the callback shape used throughout this file: it delivers one

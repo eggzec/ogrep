@@ -7,7 +7,7 @@ import (
 	"os"
 	"sync"
 
-	"officegrep/internal/core/domain"
+	"github.com/laraibg786/ogrep/internal/core/domain"
 )
 
 // SummaryMode selects how Terminal.WriteFileSummary renders a matching
