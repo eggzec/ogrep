@@ -132,4 +132,13 @@ type SearchOptions struct {
 	Types        []string
 
 	Threads int
+
+	// FilesWithMatches and CountOnly change what the orchestrator writes
+	// out for a matching file (-l/--files-with-matches and
+	// -c/--count, respectively): when either is set, per-match
+	// WriteMatch calls are skipped and only a single WriteFileSummary
+	// call is made per matching file. They are mutually exclusive; the
+	// CLI layer is responsible for rejecting both being set at once.
+	FilesWithMatches bool
+	CountOnly        bool
 }

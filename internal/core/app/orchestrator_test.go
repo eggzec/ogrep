@@ -245,6 +245,46 @@ func TestOrchestratorTypeFilter(t *testing.T) {
 	}
 }
 
+// TestOrchestratorFilesWithMatchesAndCountOnly verifies that
+// FilesWithMatches/CountOnly suppress per-match WriteMatch calls while
+// still reporting the correct match count via WriteFileSummary, and
+// that stats are unaffected.
+func TestOrchestratorFilesWithMatchesAndCountOnly(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, filepath.Join(dir, "a.txt"), "hello\nhello again\nnope\n")
+
+	sink := newFakeSink()
+	orch := app.New(newTestRegistry(), walk.New(), match.NewFactory(), sink)
+
+	stats, err := orch.Run(context.Background(), "hello", []string{dir}, domain.SearchOptions{FilesWithMatches: true})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if len(sink.matches) != 0 {
+		t.Errorf("expected no WriteMatch calls in FilesWithMatches mode, got %d", len(sink.matches))
+	}
+	if stats.TotalMatches != 2 {
+		t.Errorf("TotalMatches = %d, want 2", stats.TotalMatches)
+	}
+	path := filepath.Join(dir, "a.txt")
+	if got := sink.summary[path]; got != 2 {
+		t.Errorf("summary[%s] = %d, want 2", path, got)
+	}
+
+	sink2 := newFakeSink()
+	orch2 := app.New(newTestRegistry(), walk.New(), match.NewFactory(), sink2)
+	stats2, err := orch2.Run(context.Background(), "hello", []string{dir}, domain.SearchOptions{CountOnly: true})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if len(sink2.matches) != 0 {
+		t.Errorf("expected no WriteMatch calls in CountOnly mode, got %d", len(sink2.matches))
+	}
+	if stats2.TotalMatches != 2 {
+		t.Errorf("TotalMatches = %d, want 2", stats2.TotalMatches)
+	}
+}
+
 // panicExtractor is a ports.DocumentExtractor whose Extract spawns a
 // goroutine that panics, following the contract documented on
 // ports.DocumentExtractor: it recovers from that panic INSIDE its own

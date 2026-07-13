@@ -222,9 +222,11 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 	atomic.AddInt64(&stats.TotalMatches, int64(len(matches)))
 
 	o.writeMu.Lock()
-	for _, m := range matches {
-		if werr := o.Sink.WriteMatch(m); werr != nil {
-			fmt.Fprintf(stderr, "officegrep: warning: writing match for %s: %v\n", path, werr)
+	if !opts.FilesWithMatches && !opts.CountOnly {
+		for _, m := range matches {
+			if werr := o.Sink.WriteMatch(m); werr != nil {
+				fmt.Fprintf(stderr, "officegrep: warning: writing match for %s: %v\n", path, werr)
+			}
 		}
 	}
 	if werr := o.Sink.WriteFileSummary(path, len(matches)); werr != nil {

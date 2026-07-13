@@ -19,7 +19,7 @@ func sampleMatch() domain.Match {
 
 func TestTerminalNoColorWhenNever(t *testing.T) {
 	var buf bytes.Buffer
-	term := NewTerminal(&buf, ColorNever, nil)
+	term := NewTerminal(&buf, ColorNever, nil, SummaryModeOff)
 	if err := term.WriteMatch(sampleMatch()); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestTerminalNoColorWhenNever(t *testing.T) {
 
 func TestTerminalColorWhenAlways(t *testing.T) {
 	var buf bytes.Buffer
-	term := NewTerminal(&buf, ColorAlways, nil)
+	term := NewTerminal(&buf, ColorAlways, nil, SummaryModeOff)
 	if err := term.WriteMatch(sampleMatch()); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestTerminalColorWhenAlways(t *testing.T) {
 
 func TestTerminalAutoWithNilTTYIsNoColor(t *testing.T) {
 	var buf bytes.Buffer
-	term := NewTerminal(&buf, ColorAuto, nil)
+	term := NewTerminal(&buf, ColorAuto, nil, SummaryModeOff)
 	if err := term.WriteMatch(sampleMatch()); err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +81,39 @@ func TestJSONWriteMatch(t *testing.T) {
 	spans, ok := rec["spans"].([]any)
 	if !ok || len(spans) != 1 {
 		t.Errorf("spans = %v, want one span", rec["spans"])
+	}
+}
+
+func TestTerminalWriteFileSummaryOff(t *testing.T) {
+	var buf bytes.Buffer
+	term := NewTerminal(&buf, ColorNever, nil, SummaryModeOff)
+	if err := term.WriteFileSummary("a.txt", 3); err != nil {
+		t.Fatal(err)
+	}
+	if buf.Len() != 0 {
+		t.Errorf("expected no output for SummaryModeOff, got %q", buf.String())
+	}
+}
+
+func TestTerminalWriteFileSummaryPathOnly(t *testing.T) {
+	var buf bytes.Buffer
+	term := NewTerminal(&buf, ColorNever, nil, SummaryModePathOnly)
+	if err := term.WriteFileSummary("a.txt", 3); err != nil {
+		t.Fatal(err)
+	}
+	if got := buf.String(); got != "a.txt\n" {
+		t.Errorf("got %q, want %q", got, "a.txt\n")
+	}
+}
+
+func TestTerminalWriteFileSummaryCount(t *testing.T) {
+	var buf bytes.Buffer
+	term := NewTerminal(&buf, ColorNever, nil, SummaryModeCount)
+	if err := term.WriteFileSummary("a.txt", 3); err != nil {
+		t.Fatal(err)
+	}
+	if got := buf.String(); got != "a.txt:3\n" {
+		t.Errorf("got %q, want %q", got, "a.txt:3\n")
 	}
 }
 

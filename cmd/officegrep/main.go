@@ -81,6 +81,9 @@ type cliFlags struct {
 	excludeGlobs []string
 	noIgnore     bool
 	types        []string
+
+	filesWithMatches bool
+	countOnly        bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -132,6 +135,9 @@ func newRootCmd() *cobra.Command {
 	rootCmd.Flags().BoolVar(&flags.noIgnore, "no-ignore", false, "don't respect .gitignore/.officegrepignore files")
 	rootCmd.Flags().StringArrayVar(&flags.types, "type", nil, "only search files of this format, e.g. docx, pptx, xlsx, text (repeatable)")
 
+	rootCmd.Flags().BoolVarP(&flags.filesWithMatches, "files-with-matches", "l", false, "print only the paths of files with a match, one per line")
+	rootCmd.Flags().BoolVarP(&flags.countOnly, "count", "c", false, "print only \"path:count\" per matching file, instead of each match")
+
 	return rootCmd
 }
 
@@ -140,6 +146,10 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 	roots := args[1:]
 	if len(roots) == 0 {
 		roots = []string{"."}
+	}
+
+	if flags.filesWithMatches && flags.countOnly {
+		return fmt.Errorf("-l/--files-with-matches and -c/--count are mutually exclusive")
 	}
 
 	if len(flags.types) > 0 {
@@ -162,6 +172,9 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 		Types:        flags.types,
 
 		Threads: flags.threads,
+
+		FilesWithMatches: flags.filesWithMatches,
+		CountOnly:        flags.countOnly,
 	}
 
 	var sink ports.OutputSink
@@ -174,7 +187,14 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 		default:
 			return fmt.Errorf("invalid --color value %q (want auto, always, or never)", flags.color)
 		}
-		sink = output.NewTerminal(cmd.OutOrStdout(), mode, os.Stdout)
+		summary := output.SummaryModeOff
+		switch {
+		case flags.filesWithMatches:
+			summary = output.SummaryModePathOnly
+		case flags.countOnly:
+			summary = output.SummaryModeCount
+		}
+		sink = output.NewTerminal(cmd.OutOrStdout(), mode, os.Stdout, summary)
 	}
 
 	orch := app.New(registry.Default, walk.New(), match.NewFactory(), sink)
