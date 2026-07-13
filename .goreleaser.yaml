@@ -75,15 +75,42 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
-# This repo has no git remote yet, and this phase is explicitly scoped
-# to local, no-publish artifact generation. `release.disable` turns off
-# goreleaser's default assumption that it should infer a GitHub/GitLab/
-# Gitea remote from `git remote` and publish a release there; without
-# this, even `--snapshot --skip=publish` fails `goreleaser check` with
-# "no remote configured to list refs from". No `dockers:`, `brews:`,
-# etc. blocks are configured either, for the same reason.
+# This repo has no git remote yet, so goreleaser's default assumption
+# that it should infer a GitHub/GitLab/Gitea remote from `git remote`
+# and publish a release there cannot work locally: even
+# `--snapshot --skip=publish` fails `goreleaser check` with "no remote
+# configured to list refs from" unless the release pipe is disabled.
+#
+# But unconditionally disabling the release pipe would also break the
+# whole point of running goreleaser from a tag-triggered GitHub Actions
+# workflow (see .github/workflows/release.yml), where a real remote and
+# GITHUB_TOKEN *will* exist once this repo is pushed to GitHub. So
+# `disable` is a Go template evaluated per-run instead of a static
+# `true`/`false` — this is a documented goreleaser idiom for
+# conditionally disabling a pipe (see e.g. their own
+# `disable: '{{ ne .Branch "main" }}'` example). GitHub Actions sets
+# GITHUB_ACTIONS=true in the environment for every run it executes, and
+# that variable is absent everywhere else (including this sandbox), so:
+#   - GITHUB_ACTIONS != "true"  ->  disable evaluates true  -> local/
+#     sandbox runs keep today's working no-remote dry-run behavior.
+#   - GITHUB_ACTIONS == "true"  ->  disable evaluates false -> real CI
+#     runs actually attempt the release, using the remote + token that
+#     only exist there.
+#
+# The condition is written with `index .Env "GITHUB_ACTIONS"` rather
+# than the more obvious `.Env.GITHUB_ACTIONS` dot-access: empirically
+# (verified with `goreleaser check`), dot-accessing a *completely unset*
+# env var here behaves differently from an explicitly-set-but-empty one
+# and defeats the whole point of the conditional in exactly the
+# no-GITHUB_ACTIONS sandbox case this is meant to handle. `index` is
+# also goreleaser's own documented pattern for optional env vars (see
+# their env-with-default template cookbook), and it's what was actually
+# validated below, so it's what's used here rather than the seemingly-
+# equivalent dot-access form.
+# No `dockers:`, `brews:`, etc. blocks are configured either, since
+# those aren't part of this project's release surface.
 release:
-  disable: true
+  disable: '{{ if eq (index .Env "GITHUB_ACTIONS") "true" }}false{{ else }}true{{ end }}'
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
