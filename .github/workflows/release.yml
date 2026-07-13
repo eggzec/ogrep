@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: goreleaser release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # goreleaser needs full git history and tags to compute the
+          # version and diff against the previous tag, even though this
+          # project's changelog generation is disabled.
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: go test -race
+        # Safety gate: a tag could in principle be pushed against a
+        # commit that never actually ran through ci.yml, so re-run the
+        # test suite here before handing off to goreleaser.
+        run: go test -race ./...
+
+      - name: Run goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          # Track the goreleaser v2 line without pinning an exact patch.
+          version: "~> v2"
+          args: release --clean
+        env:
+          # .goreleaser.yaml's `release.disable` template checks for
+          # GITHUB_ACTIONS=true (set automatically by Actions) to know
+          # it's safe to publish a real release here.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
