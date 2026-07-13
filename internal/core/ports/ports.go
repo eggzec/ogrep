@@ -23,6 +23,27 @@ import (
 // in-memory DOM of the document. Extract must close the units channel
 // when extraction is complete OR when ctx is cancelled, and must send at
 // most one error on the error channel before closing it.
+//
+// Sniff and Extract may both be called concurrently, including multiple
+// concurrent calls against the SAME io.ReaderAt (the orchestrator runs a
+// worker pool across many files, and a single file may also be sniffed
+// and extracted around the same time). This is safe by construction:
+// io.ReaderAt's contract guarantees ReadAt is safe for concurrent use on
+// the same object (as with pread(2), each call carries its own offset),
+// so implementations do not need to add their own locking around ra —
+// just avoid mutating any shared state outside of ra.
+//
+// Extract runs its work in its own goroutine (to stream units over a
+// channel), which means a panic inside that goroutine can NOT be caught
+// by a recover() anywhere else, including in the orchestrator that
+// called Extract — recover only catches panics in the same goroutine's
+// call stack. Implementations MUST therefore recover from panics inside
+// their own Extract goroutine (e.g. via a deferred recover at the top of
+// that goroutine, wrapping the whole extraction loop) and report them as
+// a single error on the error channel instead of letting them propagate,
+// then close both channels normally. See
+// internal/adapters/extract/text/text.go for the reference
+// implementation every format plugin should mirror.
 type DocumentExtractor interface {
 	// Name returns a short identifier for the format, e.g. "docx".
 	Name() string
@@ -38,7 +59,9 @@ type DocumentExtractor interface {
 	// Extract streams the document's text as a sequence of TextUnits.
 	// The returned channels are owned by Extract: it must close the
 	// units channel when done (including on ctx cancellation) and send
-	// at most one error before closing the error channel.
+	// at most one error before closing the error channel. Extract's own
+	// goroutine must recover from its own panics and report them via the
+	// error channel — see the interface doc comment above.
 	Extract(ctx context.Context, ra io.ReaderAt, size int64) (<-chan domain.TextUnit, <-chan error)
 }
 

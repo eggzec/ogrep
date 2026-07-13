@@ -91,6 +91,19 @@ func (Extractor) Extract(ctx context.Context, ra io.ReaderAt, size int64) (<-cha
 	go func() {
 		defer close(units)
 		defer close(errc)
+		// A panic here happens in this goroutine, not the caller's
+		// (e.g. the orchestrator's), so only a recover() here — not one
+		// in whatever goroutine reads from units/errc — can catch it.
+		// Per the ports.DocumentExtractor contract, we convert it into
+		// an error on errc instead of letting it crash the process.
+		defer func() {
+			if r := recover(); r != nil {
+				select {
+				case errc <- fmt.Errorf("panic during text extraction: %v", r):
+				default:
+				}
+			}
+		}()
 
 		sr := io.NewSectionReader(ra, 0, size)
 		scanner := bufio.NewScanner(sr)

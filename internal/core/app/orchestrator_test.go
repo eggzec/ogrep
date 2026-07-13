@@ -1,10 +1,14 @@
 package app_test
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -13,6 +17,7 @@ import (
 	"officegrep/internal/adapters/walk"
 	"officegrep/internal/core/app"
 	"officegrep/internal/core/domain"
+	"officegrep/internal/core/ports"
 	"officegrep/internal/registry"
 )
 
@@ -203,5 +208,86 @@ func TestOrchestratorConcurrentFilesNotInterleaved(t *testing.T) {
 			seen[m.Location.Path] = true
 			lastPath = m.Location.Path
 		}
+	}
+}
+
+// panicExtractor is a ports.DocumentExtractor whose Extract spawns a
+// goroutine that panics, following the contract documented on
+// ports.DocumentExtractor: it recovers from that panic INSIDE its own
+// goroutine and reports it as a single error on the error channel,
+// rather than letting the panic propagate (which it cannot do across
+// goroutines anyway — recover() only unwinds the goroutine it's
+// deferred in).
+type panicExtractor struct{}
+
+func (panicExtractor) Name() string { return "panic" }
+
+func (panicExtractor) Sniff(path string, ra io.ReaderAt, size int64) bool { return true }
+
+func (panicExtractor) Extract(ctx context.Context, ra io.ReaderAt, size int64) (<-chan domain.TextUnit, <-chan error) {
+	units := make(chan domain.TextUnit)
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(units)
+		defer close(errc)
+		defer func() {
+			if r := recover(); r != nil {
+				select {
+				case errc <- fmt.Errorf("panic during extraction: %v", r):
+				default:
+				}
+			}
+		}()
+
+		// Simulate the failure mode malformed XML/zip content is
+		// expected to trigger in the docx/pptx/xlsx plugins: an
+		// index-out-of-range or nil-dereference partway through
+		// streaming decode.
+		var bad []int
+		_ = bad[5] // panics: index out of range
+	}()
+
+	return units, errc
+}
+
+// fakeLookup is a minimal ExtractorLookup that always resolves to a
+// given extractor, regardless of path/contents.
+type fakeLookup struct{ extractor ports.DocumentExtractor }
+
+func (f fakeLookup) For(path string, ra io.ReaderAt, size int64) (ports.DocumentExtractor, bool) {
+	return f.extractor, true
+}
+
+// TestOrchestratorSurvivesExtractorGoroutinePanic is a regression test
+// for a bug where a panic inside a DocumentExtractor's own Extract
+// goroutine could crash the whole process: a recover() deferred in a
+// DIFFERENT goroutine (e.g. the orchestrator's per-file worker) cannot
+// catch a panic raised in this one. The fix requires every extractor to
+// recover inside its own goroutine and report the panic via the error
+// channel instead (see ports.DocumentExtractor's doc comment and
+// internal/adapters/extract/text/text.go for the reference
+// implementation). This test exercises that contract end-to-end through
+// the real SearchOrchestrator.Run and asserts the run completes
+// normally, with the panic surfaced as a logged warning, instead of
+// crashing the test binary.
+func TestOrchestratorSurvivesExtractorGoroutinePanic(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, filepath.Join(dir, "corrupt.docx"), "this content is irrelevant; panicExtractor always claims it")
+
+	var stderr bytes.Buffer
+	sink := newFakeSink()
+	orch := app.New(fakeLookup{extractor: panicExtractor{}}, walk.New(), match.NewFactory(), sink)
+	orch.Stderr = &stderr
+
+	stats, err := orch.Run(context.Background(), "anything", []string{dir}, domain.SearchOptions{})
+	if err != nil {
+		t.Fatalf("Run() error = %v, want nil (per-file failures must not fail the whole run)", err)
+	}
+	if stats.TotalMatches != 0 {
+		t.Errorf("TotalMatches = %d, want 0 (the panicking file produced no units)", stats.TotalMatches)
+	}
+	if !strings.Contains(stderr.String(), "panic") {
+		t.Errorf("expected the panic to be logged as a warning to Stderr, got %q", stderr.String())
 	}
 }

@@ -125,8 +125,20 @@ func (o *SearchOrchestrator) Run(ctx context.Context, pattern string, roots []st
 
 // searchFile handles exactly one file: extractor lookup, streaming
 // extraction, matching, and a single atomic write-out of that file's
-// results. Panics from a misbehaving extractor are recovered so one
-// corrupt document can't take down the whole run.
+// results.
+//
+// The deferred recover() below only catches panics that happen
+// synchronously in THIS goroutine — e.g. inside Registry.For/Sniff, or
+// inside Matcher.FindAll while we range over units. It does NOT, and
+// cannot, catch a panic raised inside an extractor's own Extract
+// goroutine (see internal/adapters/extract/text/text.go), since Go's
+// recover() only unwinds the goroutine it's deferred in. That case —
+// the one most likely to be triggered by malformed XML/zip content in
+// the docx/pptx/xlsx plugins — is the extractor's own responsibility to
+// guard against, per the contract documented on
+// ports.DocumentExtractor: implementations must recover inside their
+// Extract goroutine and report the panic as an error on the error
+// channel instead of letting it crash the process.
 func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matcher ports.Matcher, opts domain.SearchOptions, stats *Stats, stderr io.Writer) {
 	defer func() {
 		if r := recover(); r != nil {
