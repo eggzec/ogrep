@@ -164,6 +164,12 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 	if !ok {
 		return // not a recognized format; silently skip, like rg skipping binaries
 	}
+	if len(opts.Types) > 0 && !typeAllowed(opts.Types, extractor.Name()) {
+		// Filtered out by --type: treat exactly like an unrecognized
+		// format (not counted as searched), rather than as a file that
+		// was searched and simply produced no matches.
+		return
+	}
 	atomic.AddInt64(&stats.FilesSearched, 1)
 
 	// A per-file context lets us unblock (and let the extractor's
@@ -225,4 +231,15 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 		fmt.Fprintf(stderr, "officegrep: warning: writing summary for %s: %v\n", path, werr)
 	}
 	o.writeMu.Unlock()
+}
+
+// typeAllowed reports whether name (an extractor's Name(), e.g. "docx")
+// is one of the values passed via --type.
+func typeAllowed(types []string, name string) bool {
+	for _, t := range types {
+		if t == name {
+			return true
+		}
+	}
+	return false
 }

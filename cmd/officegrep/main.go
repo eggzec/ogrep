@@ -7,6 +7,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -78,6 +80,7 @@ type cliFlags struct {
 	includeGlobs []string
 	excludeGlobs []string
 	noIgnore     bool
+	types        []string
 }
 
 func newRootCmd() *cobra.Command {
@@ -127,6 +130,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.Flags().StringArrayVar(&flags.includeGlobs, "include", nil, "only search files matching this glob (repeatable)")
 	rootCmd.Flags().StringArrayVar(&flags.excludeGlobs, "exclude", nil, "skip files matching this glob (repeatable)")
 	rootCmd.Flags().BoolVar(&flags.noIgnore, "no-ignore", false, "don't respect .gitignore/.officegrepignore files")
+	rootCmd.Flags().StringArrayVar(&flags.types, "type", nil, "only search files of this format, e.g. docx, pptx, xlsx, text (repeatable)")
 
 	return rootCmd
 }
@@ -136,6 +140,12 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 	roots := args[1:]
 	if len(roots) == 0 {
 		roots = []string{"."}
+	}
+
+	if len(flags.types) > 0 {
+		if err := validateTypes(flags.types); err != nil {
+			return err
+		}
 	}
 
 	opts := domain.SearchOptions{
@@ -149,6 +159,7 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 
 		IncludeGlobs: flags.includeGlobs,
 		ExcludeGlobs: append(append([]string{}, cfg.Ignore...), flags.excludeGlobs...),
+		Types:        flags.types,
 
 		Threads: flags.threads,
 	}
@@ -175,6 +186,28 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 
 	if stats.TotalMatches == 0 {
 		os.Exit(1)
+	}
+	return nil
+}
+
+// validateTypes checks each requested --type value against the actually
+// registered extractors' Name()s, returning a clear error listing valid
+// choices if an unknown type is given, rather than silently matching no
+// files.
+func validateTypes(types []string) error {
+	registered := registry.Default.All()
+	valid := make(map[string]bool, len(registered))
+	names := make([]string, 0, len(registered))
+	for _, e := range registered {
+		valid[e.Name()] = true
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+
+	for _, t := range types {
+		if !valid[t] {
+			return fmt.Errorf("unknown --type %q (valid types: %s)", t, strings.Join(names, ", "))
+		}
 	}
 	return nil
 }

@@ -211,6 +211,40 @@ func TestOrchestratorConcurrentFilesNotInterleaved(t *testing.T) {
 	}
 }
 
+// TestOrchestratorTypeFilter verifies --type filtering (opts.Types):
+// files recognized by an extractor not in the allowed list are skipped
+// entirely, and not counted as FilesSearched.
+func TestOrchestratorTypeFilter(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, filepath.Join(dir, "a.txt"), "hello world\n")
+	writeFixture(t, filepath.Join(dir, "b.txt"), "hello again\n")
+
+	sink := newFakeSink()
+	orch := app.New(newTestRegistry(), walk.New(), match.NewFactory(), sink)
+
+	stats, err := orch.Run(context.Background(), "hello", []string{dir}, domain.SearchOptions{Types: []string{"docx"}})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if stats.FilesSearched != 0 {
+		t.Errorf("FilesSearched = %d, want 0 (both files are \"text\", filtered out by --type docx)", stats.FilesSearched)
+	}
+	if stats.TotalMatches != 0 {
+		t.Errorf("TotalMatches = %d, want 0", stats.TotalMatches)
+	}
+
+	stats, err = orch.Run(context.Background(), "hello", []string{dir}, domain.SearchOptions{Types: []string{"text"}})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if stats.FilesSearched != 2 {
+		t.Errorf("FilesSearched = %d, want 2", stats.FilesSearched)
+	}
+	if stats.TotalMatches != 2 {
+		t.Errorf("TotalMatches = %d, want 2", stats.TotalMatches)
+	}
+}
+
 // panicExtractor is a ports.DocumentExtractor whose Extract spawns a
 // goroutine that panics, following the contract documented on
 // ports.DocumentExtractor: it recovers from that panic INSIDE its own
