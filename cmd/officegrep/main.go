@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	_ "go.uber.org/automaxprocs" // sets GOMAXPROCS from the cgroup CPU quota when running in a container/pod, so runtime.NumCPU()-based defaults (walker/orchestrator thread counts) don't oversubscribe; a documented no-op outside a container.
 
 	_ "officegrep/internal/adapters/extract/all"
 	"officegrep/internal/adapters/match"
