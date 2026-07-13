@@ -6,8 +6,8 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-// Config is officegrep's optional user config file, read from
-// ConfigFilePath() ("$XDG_CONFIG_HOME/officegrep/config.toml") if
+// Config is ogrep's optional user config file, read from
+// ConfigFilePath() ("$XDG_CONFIG_HOME/ogrep/config.toml") if
 // present. It seeds CLI defaults; explicit command-line flags always
 // override values loaded from here.
 //
@@ -21,7 +21,7 @@ type Config struct {
 }
 
 // LoadConfig reads and parses the TOML config file at ConfigFilePath().
-// officegrep never auto-creates this file: if it doesn't exist,
+// ogrep never auto-creates this file: if it doesn't exist,
 // LoadConfig returns a zero-value Config and a nil error, so callers
 // can treat "no config" identically to "empty config".
 func LoadConfig() (Config, error) {

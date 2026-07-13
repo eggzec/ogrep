@@ -1,6 +1,6 @@
 // Package xdg resolves paths per the XDG Base Directory specification
 // (https://specifications.freedesktop.org/basedir-spec/latest/) and
-// loads officegrep's optional TOML config file from the resolved
+// loads ogrep's optional TOML config file from the resolved
 // config directory.
 //
 // Per spec: if an XDG_*_HOME environment variable is set but its value
@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 )
 
-const appName = "officegrep"
+const appName = "ogrep"
 
 // envOrFallback returns the value of the named environment variable if
 // it is set AND an absolute path, otherwise it returns fallback.
@@ -51,27 +51,27 @@ func DataHome() string {
 	return envOrFallback("XDG_DATA_HOME", filepath.Join(homeDir(), ".local", "share"))
 }
 
-// ConfigDir returns "$XDG_CONFIG_HOME/officegrep". officegrep does not
+// ConfigDir returns "$XDG_CONFIG_HOME/ogrep". ogrep does not
 // create this directory; it only reads config.toml from it if present.
 func ConfigDir() string {
 	return filepath.Join(ConfigHome(), appName)
 }
 
-// CacheDir returns "$XDG_CACHE_HOME/officegrep". Unused in v1 (there is
+// CacheDir returns "$XDG_CACHE_HOME/ogrep". Unused in v1 (there is
 // no cache yet), but resolvable so future phases have a stable path to
-// build on. officegrep does not create this directory.
+// build on. ogrep does not create this directory.
 func CacheDir() string {
 	return filepath.Join(CacheHome(), appName)
 }
 
-// DataDir returns "$XDG_DATA_HOME/officegrep". officegrep does not
+// DataDir returns "$XDG_DATA_HOME/ogrep". ogrep does not
 // create this directory.
 func DataDir() string {
 	return filepath.Join(DataHome(), appName)
 }
 
-// ConfigFilePath returns the path officegrep reads its optional TOML
-// config from: "$XDG_CONFIG_HOME/officegrep/config.toml".
+// ConfigFilePath returns the path ogrep reads its optional TOML
+// config from: "$XDG_CONFIG_HOME/ogrep/config.toml".
 func ConfigFilePath() string {
 	return filepath.Join(ConfigDir(), "config.toml")
 }

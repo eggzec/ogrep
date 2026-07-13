@@ -23,9 +23,9 @@ var vcsDirs = map[string]bool{
 var lockFilePattern = regexp.MustCompile(`^~\$.*\.(docx|pptx|xlsx)$`)
 
 // ignoreFileNames are the ignore files consulted in each directory,
-// in load order. .officegrepignore is project-local and additional to
+// in load order. .ogrepignore is project-local and additional to
 // .gitignore, not a replacement for it.
-var ignoreFileNames = []string{".gitignore", ".officegrepignore"}
+var ignoreFileNames = []string{".gitignore", ".ogrepignore"}
 
 // Walker implements ports.FileWalker over the local filesystem.
 type Walker struct{}

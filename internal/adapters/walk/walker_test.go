@@ -75,16 +75,16 @@ func TestWalkerNoIgnoreOverride(t *testing.T) {
 	assertPathsEqual(t, got, want)
 }
 
-func TestWalkerOfficegrepIgnoreIsAdditional(t *testing.T) {
+func TestWalkerOgrepIgnoreIsAdditional(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, ".gitignore"), "*.log\n")
-	writeFile(t, filepath.Join(root, ".officegrepignore"), "*.tmp\n")
+	writeFile(t, filepath.Join(root, ".ogrepignore"), "*.tmp\n")
 	writeFile(t, filepath.Join(root, "keep.txt"), "keep")
 	writeFile(t, filepath.Join(root, "debug.log"), "ignored via gitignore")
-	writeFile(t, filepath.Join(root, "scratch.tmp"), "ignored via officegrepignore")
+	writeFile(t, filepath.Join(root, "scratch.tmp"), "ignored via ogrepignore")
 
 	got := collectPaths(t, New(), root, domain.SearchOptions{})
-	want := []string{".gitignore", ".officegrepignore", "keep.txt"}
+	want := []string{".gitignore", ".ogrepignore", "keep.txt"}
 	assertPathsEqual(t, got, want)
 }
 

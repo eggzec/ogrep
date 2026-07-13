@@ -24,7 +24,7 @@ import (
 // spread across nested directories (up to 4 levels deep), mixing several
 // extensions (including office-format ones, though their content is
 // irrelevant to a walk-only benchmark) and scattering .gitignore/
-// .officegrepignore files at various depths so ignore-rule loading and
+// .ogrepignore files at various depths so ignore-rule loading and
 // stack maintenance are exercised too, not just plain enumeration.
 func buildLargeTree(tb testing.TB, numFiles int) string {
 	tb.Helper()
@@ -52,8 +52,8 @@ func buildLargeTree(tb testing.TB, numFiles int) string {
 			}
 		}
 		if dirCount%25 == 0 {
-			if err := os.WriteFile(filepath.Join(dir, ".officegrepignore"), []byte("*.bin\n"), 0o644); err != nil {
-				tb.Fatalf("writing .officegrepignore: %v", err)
+			if err := os.WriteFile(filepath.Join(dir, ".ogrepignore"), []byte("*.bin\n"), 0o644); err != nil {
+				tb.Fatalf("writing .ogrepignore: %v", err)
 			}
 		}
 
@@ -103,7 +103,7 @@ func BenchmarkWalkLargeTree(b *testing.B) {
 // for the thread-scaling benchmark below: it spreads tens of thousands
 // of files across thousands of directories, up to 6 levels deep (vs
 // buildLargeTree's 4), with a wider branching factor per level, and
-// scatters .gitignore/.officegrepignore files at more depths so
+// scatters .gitignore/.ogrepignore files at more depths so
 // ignore-rule-chain construction is exercised at every level, not just
 // near the root. The traversal (syscall/metadata-bound: readdir + stat
 // down a large tree) is exactly the phase this task parallelizes, so the
@@ -137,8 +137,8 @@ func buildHugeTree(tb testing.TB, numFiles int) string {
 			}
 		}
 		if dirCount%30 == 0 {
-			if err := os.WriteFile(filepath.Join(dir, ".officegrepignore"), []byte("*.bin\n"), 0o644); err != nil {
-				tb.Fatalf("writing .officegrepignore: %v", err)
+			if err := os.WriteFile(filepath.Join(dir, ".ogrepignore"), []byte("*.bin\n"), 0o644); err != nil {
+				tb.Fatalf("writing .ogrepignore: %v", err)
 			}
 		}
 

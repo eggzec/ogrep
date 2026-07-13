@@ -8,7 +8,7 @@ import (
 
 func TestConfigDirUsesEnvWhenAbsolute(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "/custom/config")
-	want := filepath.Join("/custom/config", "officegrep")
+	want := filepath.Join("/custom/config", "ogrep")
 	if got := ConfigDir(); got != want {
 		t.Errorf("ConfigDir() = %q, want %q", got, want)
 	}
@@ -22,7 +22,7 @@ func TestConfigDirFallsBackWhenEnvRelative(t *testing.T) {
 	if err != nil {
 		t.Skip("no home dir available in this environment")
 	}
-	want := filepath.Join(home, ".config", "officegrep")
+	want := filepath.Join(home, ".config", "ogrep")
 	if got := ConfigDir(); got != want {
 		t.Errorf("ConfigDir() = %q, want %q", got, want)
 	}
@@ -34,7 +34,7 @@ func TestConfigDirFallsBackWhenEnvUnset(t *testing.T) {
 	if err != nil {
 		t.Skip("no home dir available in this environment")
 	}
-	want := filepath.Join(home, ".config", "officegrep")
+	want := filepath.Join(home, ".config", "ogrep")
 	if got := ConfigDir(); got != want {
 		t.Errorf("ConfigDir() = %q, want %q", got, want)
 	}
@@ -42,7 +42,7 @@ func TestConfigDirFallsBackWhenEnvUnset(t *testing.T) {
 
 func TestCacheDirUsesEnvWhenAbsolute(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", "/custom/cache")
-	want := filepath.Join("/custom/cache", "officegrep")
+	want := filepath.Join("/custom/cache", "ogrep")
 	if got := CacheDir(); got != want {
 		t.Errorf("CacheDir() = %q, want %q", got, want)
 	}
@@ -54,7 +54,7 @@ func TestCacheDirFallsBackWhenEnvRelative(t *testing.T) {
 	if err != nil {
 		t.Skip("no home dir available in this environment")
 	}
-	want := filepath.Join(home, ".cache", "officegrep")
+	want := filepath.Join(home, ".cache", "ogrep")
 	if got := CacheDir(); got != want {
 		t.Errorf("CacheDir() = %q, want %q", got, want)
 	}
@@ -62,7 +62,7 @@ func TestCacheDirFallsBackWhenEnvRelative(t *testing.T) {
 
 func TestDataDirUsesEnvWhenAbsolute(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", "/custom/data")
-	want := filepath.Join("/custom/data", "officegrep")
+	want := filepath.Join("/custom/data", "ogrep")
 	if got := DataDir(); got != want {
 		t.Errorf("DataDir() = %q, want %q", got, want)
 	}
@@ -74,7 +74,7 @@ func TestDataDirFallsBackWhenEnvRelative(t *testing.T) {
 	if err != nil {
 		t.Skip("no home dir available in this environment")
 	}
-	want := filepath.Join(home, ".local", "share", "officegrep")
+	want := filepath.Join(home, ".local", "share", "ogrep")
 	if got := DataDir(); got != want {
 		t.Errorf("DataDir() = %q, want %q", got, want)
 	}
@@ -82,7 +82,7 @@ func TestDataDirFallsBackWhenEnvRelative(t *testing.T) {
 
 func TestConfigFilePath(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "/custom/config")
-	want := filepath.Join("/custom/config", "officegrep", "config.toml")
+	want := filepath.Join("/custom/config", "ogrep", "config.toml")
 	if got := ConfigFilePath(); got != want {
 		t.Errorf("ConfigFilePath() = %q, want %q", got, want)
 	}
@@ -102,7 +102,7 @@ func TestLoadConfigMissingFileReturnsZeroValue(t *testing.T) {
 func TestLoadConfigParsesTOML(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
-	confDir := filepath.Join(dir, "officegrep")
+	confDir := filepath.Join(dir, "ogrep")
 	if err := os.MkdirAll(confDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
