@@ -1,0 +1,92 @@
+# goreleaser configuration for officegrep.
+#
+# This targets the goreleaser v2 config schema (v1 configs are
+# deprecated as of goreleaser v2). See https://goreleaser.com for the
+# full schema reference.
+#
+# Local/dry-run usage (no git tag, no remote, no token required):
+#
+#   goreleaser release --snapshot --clean --skip=publish
+#
+# Real release usage (once this repo has a git remote and a
+# GITHUB_TOKEN with repo scope — neither exists yet):
+#
+#   git tag vX.Y.Z && git push --tags
+#   goreleaser release --clean
+version: 2
+
+project_name: officegrep
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: officegrep
+    main: ./cmd/officegrep
+    binary: officegrep
+    # Statically-linked, no-libc binaries: CGO must be off for every
+    # target so the same build works whether or not a C toolchain is
+    # even installed on the build host, and so the resulting binary has
+    # no runtime dependency on glibc/musl.
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # No excludes: all 6 combinations (linux/darwin/windows x amd64/arm64)
+    # are valid, including windows/arm64 (supported by Go's toolchain
+    # since Go 1.17, and there is a growing base of arm64 Windows
+    # devices, e.g. Surface Pro X/11, that this build serves).
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+
+archives:
+  - id: officegrep
+    ids:
+      - officegrep
+    # Explicit rather than relying on goreleaser's default (which also
+    # happens to be zip-for-windows/tar.gz-otherwise) so the intent is
+    # documented here rather than left implicit.
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    files:
+      # Glob patterns (as opposed to bare filenames) that match zero
+      # files are silently skipped by goreleaser rather than failing
+      # the build; a bare "LICENSE" with no glob metacharacter errors
+      # out if missing. LICENSE does not exist in this repo yet (see
+      # README/report) — the `LICENSE*` form here means the archive
+      # build keeps working today and starts picking it up
+      # automatically the day the maintainer adds one, with no config
+      # change required at that point.
+      - README*
+      - LICENSE*
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# This repo has no git remote yet, and this phase is explicitly scoped
+# to local, no-publish artifact generation. `release.disable` turns off
+# goreleaser's default assumption that it should infer a GitHub/GitLab/
+# Gitea remote from `git remote` and publish a release there; without
+# this, even `--snapshot --skip=publish` fails `goreleaser check` with
+# "no remote configured to list refs from". No `dockers:`, `brews:`,
+# etc. blocks are configured either, for the same reason.
+release:
+  disable: true
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  disable: true
