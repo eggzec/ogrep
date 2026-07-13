@@ -84,6 +84,8 @@ type cliFlags struct {
 
 	filesWithMatches bool
 	countOnly        bool
+
+	stats bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -137,6 +139,8 @@ func newRootCmd() *cobra.Command {
 
 	rootCmd.Flags().BoolVarP(&flags.filesWithMatches, "files-with-matches", "l", false, "print only the paths of files with a match, one per line")
 	rootCmd.Flags().BoolVarP(&flags.countOnly, "count", "c", false, "print only \"path:count\" per matching file, instead of each match")
+
+	rootCmd.Flags().BoolVar(&flags.stats, "stats", false, "print summary search statistics after the results")
 
 	return rootCmd
 }
@@ -202,6 +206,11 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 	stats, err := orch.Run(context.Background(), pattern, roots, opts)
 	if err != nil {
 		return err
+	}
+
+	if flags.stats {
+		fmt.Fprintf(cmd.OutOrStdout(), "\n%d files walked\n%d files searched\n%d files matched\n%d total matches\n",
+			stats.FilesWalked, stats.FilesSearched, stats.FilesMatched, stats.TotalMatches)
 	}
 
 	if stats.TotalMatches == 0 {
