@@ -81,6 +81,27 @@ goreleaser release --clean
 goreleaser picks the version up from the git tag and stamps it into
 each binary (`officegrep --version`) via ldflags.
 
+Once this repo has a real remote on GitHub, pushing a `vX.Y.Z`-shaped
+tag (`git push --tags` above) also triggers `.github/workflows/
+release.yml` automatically: it runs the test suite as a safety gate
+and then runs `goreleaser release --clean` in CI via the
+`goreleaser-action`, using the repo's automatically-provided
+`GITHUB_TOKEN`, so no local `goreleaser` invocation is required at all
+for a normal release. The manual steps above remain valid too — they're
+still how to do a local dry run (`--snapshot --skip=publish`), and they
+still work for a real release for anyone releasing from a machine
+outside CI. `.goreleaser.yaml`'s `release.disable` field is templated
+so it only actually attempts to publish when running inside GitHub
+Actions (`GITHUB_ACTIONS=true`); every other environment, including
+local dry runs in a repo with no remote, keeps skipping the release
+pipe exactly as before.
+
+`.github/workflows/ci.yml` separately runs `gofmt`, `go vet`, a build,
+and `go test -race` on every push to `main` and every pull request, plus
+a lightweight build-only sanity check on `ubuntu-latest`, `macos-latest`,
+and `windows-latest` (goreleaser cross-compiles for all three, so a
+platform-specific compile break is worth catching before release time).
+
 ## License
 
 No `LICENSE` file has been added to this repository yet — that's a
