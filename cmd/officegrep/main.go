@@ -67,9 +67,17 @@ func main() {
 type cliFlags struct {
 	ignoreCase   bool
 	fixedStrings bool
+	wholeWord    bool
+	invertMatch  bool
 	color        string
 	threads      int
 	jsonOutput   bool
+
+	maxCount int
+
+	includeGlobs []string
+	excludeGlobs []string
+	noIgnore     bool
 }
 
 func newRootCmd() *cobra.Command {
@@ -108,9 +116,17 @@ func newRootCmd() *cobra.Command {
 
 	rootCmd.Flags().BoolVarP(&flags.ignoreCase, "ignore-case", "i", false, "case-insensitive search")
 	rootCmd.Flags().BoolVarP(&flags.fixedStrings, "fixed-strings", "F", false, "treat PATTERN as a literal string, not a regex")
+	rootCmd.Flags().BoolVarP(&flags.wholeWord, "word-regexp", "w", false, "only match whole words")
+	rootCmd.Flags().BoolVarP(&flags.invertMatch, "invert-match", "v", false, "select text units that do NOT match PATTERN")
 	rootCmd.Flags().StringVar(&flags.color, "color", flags.color, "when to colorize output: auto, always, never")
 	rootCmd.Flags().IntVarP(&flags.threads, "threads", "j", flags.threads, "number of search worker threads (default: number of CPUs)")
 	rootCmd.Flags().BoolVar(&flags.jsonOutput, "json", false, "emit JSON-lines output instead of terminal formatting")
+
+	rootCmd.Flags().IntVarP(&flags.maxCount, "max-count", "m", 0, "stop after N matches per file (0 = unlimited)")
+
+	rootCmd.Flags().StringArrayVar(&flags.includeGlobs, "include", nil, "only search files matching this glob (repeatable)")
+	rootCmd.Flags().StringArrayVar(&flags.excludeGlobs, "exclude", nil, "skip files matching this glob (repeatable)")
+	rootCmd.Flags().BoolVar(&flags.noIgnore, "no-ignore", false, "don't respect .gitignore/.officegrepignore files")
 
 	return rootCmd
 }
@@ -125,8 +141,16 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 	opts := domain.SearchOptions{
 		IgnoreCase:   flags.ignoreCase,
 		FixedStrings: flags.fixedStrings,
-		Threads:      flags.threads,
-		ExcludeGlobs: cfg.Ignore,
+		WholeWord:    flags.wholeWord,
+		InvertMatch:  flags.invertMatch,
+		NoIgnore:     flags.noIgnore,
+
+		MaxCount: flags.maxCount,
+
+		IncludeGlobs: flags.includeGlobs,
+		ExcludeGlobs: append(append([]string{}, cfg.Ignore...), flags.excludeGlobs...),
+
+		Threads: flags.threads,
 	}
 
 	var sink ports.OutputSink
