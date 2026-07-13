@@ -1,0 +1,117 @@
+package xlsx_test
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+
+	"officegrep/internal/adapters/extract/xlsx"
+	"officegrep/internal/adapters/match"
+	"officegrep/internal/adapters/walk"
+	"officegrep/internal/core/app"
+	"officegrep/internal/core/domain"
+	"officegrep/internal/registry"
+)
+
+// fakeSink collects matches in memory, mirroring the orchestrator's own
+// test helper, so this test can assert on real end-to-end search
+// results without depending on a specific terminal/json rendering.
+type fakeSink struct {
+	mu      sync.Mutex
+	matches []domain.Match
+}
+
+func (s *fakeSink) WriteMatch(m domain.Match) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.matches = append(s.matches, m)
+	return nil
+}
+
+func (s *fakeSink) WriteFileSummary(path string, count int) error { return nil }
+func (s *fakeSink) Flush() error                                  { return nil }
+
+// TestIntegrationOrchestratorFindsXlsxMatches builds a fresh registry
+// containing only the xlsx Extractor, writes a real xlsx fixture to a
+// temp file on disk, and drives it through the real
+// app.SearchOrchestrator end to end, confirming matches come back with
+// correctly-formed Location.Human strings.
+func TestIntegrationOrchestratorFindsXlsxMatches(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "report.xlsx")
+
+	data := buildXlsx(t, multiSheetFixture())
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("writing fixture file: %v", err)
+	}
+
+	reg := registry.New()
+	reg.Register(xlsx.Extractor{})
+
+	sink := &fakeSink{}
+	orch := app.New(reg, walk.New(), match.NewFactory(), sink)
+
+	stats, err := orch.Run(context.Background(), "Second Sheet Value", []string{dir}, domain.SearchOptions{})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if stats.TotalMatches != 1 {
+		t.Fatalf("TotalMatches = %d, want 1", stats.TotalMatches)
+	}
+
+	m := sink.matches[0]
+	if m.Location.Human != "Budget 2024!B45" {
+		t.Errorf("Location.Human = %q, want %q", m.Location.Human, "Budget 2024!B45")
+	}
+	if m.Location.Path != path {
+		t.Errorf("Location.Path = %q, want %q", m.Location.Path, path)
+	}
+	if m.Location.Format != "xlsx" {
+		t.Errorf("Location.Format = %q, want %q", m.Location.Format, "xlsx")
+	}
+}
+
+// TestIntegrationOrchestratorRegexAcrossSheets confirms a regex pattern
+// matches cells spread across multiple resolved sheets, exercising the
+// full walk -> sniff -> extract -> match -> sink pipeline with more
+// than one match.
+func TestIntegrationOrchestratorRegexAcrossSheets(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "workbook.xlsx")
+
+	data := buildXlsx(t, multiSheetFixture())
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("writing fixture file: %v", err)
+	}
+
+	reg := registry.New()
+	reg.Register(xlsx.Extractor{})
+
+	sink := &fakeSink{}
+	orch := app.New(reg, walk.New(), match.NewFactory(), sink)
+
+	stats, err := orch.Run(context.Background(), "^(Hello World|FormulaResult)$", []string{dir}, domain.SearchOptions{})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if stats.TotalMatches != 2 {
+		t.Fatalf("TotalMatches = %d, want 2", stats.TotalMatches)
+	}
+
+	var humans []string
+	for _, m := range sink.matches {
+		humans = append(humans, m.Location.Human)
+	}
+	wantSet := map[string]bool{"Sheet1!A1": true, "Budget 2024!C1": true}
+	for _, h := range humans {
+		if !wantSet[h] {
+			t.Errorf("unexpected match location %q", h)
+		}
+		delete(wantSet, h)
+	}
+	if len(wantSet) != 0 {
+		t.Errorf("missing expected matches: %v", wantSet)
+	}
+}
