@@ -182,33 +182,117 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 
 	units, extractErrc := extractor.Extract(fileCtx, f, size)
 
+	// matches accumulates everything that will be written out for this
+	// file: real matches (with populated Spans) plus, when
+	// -A/-B/-C requested context lines, the surrounding TextUnits
+	// (with empty Spans, the same convention already used by
+	// InvertMatch to mean "no highlighted portion"). realMatchCount
+	// tracks only genuine matches — used for Stats.TotalMatches, the
+	// -m/--max-count cap, and the count reported to -c/--count — so
+	// context lines never inflate those.
 	var matches []domain.Match
+	realMatchCount := 0
+
+	// Context-line bookkeeping for -A/-B/-C, kept bounded (at most
+	// opts.ContextBefore units buffered at any time — never the whole
+	// file):
+	//
+	//   - before is a fixed-capacity ring of the most recently seen
+	//     units, flushed into matches (as context) whenever a match is
+	//     found, then reset.
+	//   - afterRemaining counts down how many more non-matching units
+	//     to still emit as trailing context after the most recent
+	//     match.
+	//   - lastEmittedIdx is the sequential index of the last unit
+	//     appended to matches; emit() uses it to avoid re-emitting a
+	//     unit that's already present (e.g. a unit that was trailing
+	//     context for one match and would otherwise also be flushed as
+	//     leading context for the next), which is exactly the "two
+	//     matches whose context windows overlap" case that must not
+	//     produce duplicate entries.
+	before := newContextRing(opts.ContextBefore)
+	afterRemaining := 0
+	lastEmittedIdx := -1
+	maxCountReached := false
+
+	emit := func(idx int, u domain.TextUnit, spans []domain.Span) {
+		if idx <= lastEmittedIdx {
+			return
+		}
+		loc := u.Location
+		loc.Path = path
+		matches = append(matches, domain.Match{Location: loc, Text: u.Text, Spans: spans})
+		lastEmittedIdx = idx
+	}
+
+	unitIdx := -1
 	for unit := range units {
+		unitIdx++
 		if ctx.Err() != nil {
 			break
 		}
 		spans := matcher.FindAll(unit.Text)
 		matched := len(spans) > 0
+
 		if opts.InvertMatch {
+			// Context lines (-A/-B/-C) are not combined with
+			// -v/--invert-match in v1: invert-match's whole result set
+			// is already "every non-matching unit", so a context
+			// window around each one adds little. MaxCount is honored
+			// here too (a preexisting gap: the original implementation
+			// never applied -m to the invert-match path at all, since
+			// it `continue`d before reaching the cap check below).
 			if matched {
 				continue
 			}
 			loc := unit.Location
 			loc.Path = path
 			matches = append(matches, domain.Match{Location: loc, Text: unit.Text})
+			realMatchCount++
+			if opts.MaxCount > 0 && realMatchCount >= opts.MaxCount {
+				break
+			}
 			continue
 		}
-		if !matched {
-			continue
-		}
-		loc := unit.Location
-		loc.Path = path
-		matches = append(matches, domain.Match{Location: loc, Text: unit.Text, Spans: spans})
 
-		if opts.MaxCount > 0 && len(matches) >= opts.MaxCount {
+		if matched {
+			for _, bu := range before.items() {
+				emit(bu.idx, bu.unit, nil)
+			}
+			before.reset()
+
+			emit(unitIdx, unit, spans)
+			realMatchCount++
+			afterRemaining = opts.ContextAfter
+
+			if opts.MaxCount > 0 && realMatchCount >= opts.MaxCount {
+				// Don't stop immediately: still emit any trailing
+				// context owed to this (final, per the cap) match.
+				maxCountReached = true
+			}
+		} else {
+			if afterRemaining > 0 {
+				emit(unitIdx, unit, nil)
+				afterRemaining--
+			}
+			before.push(ctxUnit{idx: unitIdx, unit: unit})
+		}
+
+		if maxCountReached && afterRemaining <= 0 {
 			break
 		}
 	}
+
+	// Cancel fileCtx before draining extractErrc: if we stopped
+	// consuming units early (MaxCount/context cap reached above, or the
+	// run-level ctx being cancelled), the extractor's own goroutine may
+	// currently be blocked trying to send its next unit to a reader
+	// that's gone away. Without cancelling here first, the blocking
+	// receive on extractErrc below would deadlock forever waiting for a
+	// goroutine that itself is waiting on us. This is a no-op if the
+	// extractor already finished and closed its channels on its own
+	// (the common case: we drained every unit it sent).
+	fileCancel()
 
 	if err, ok := <-extractErrc; ok && err != nil {
 		fmt.Fprintf(stderr, "officegrep: warning: %s: %v\n", path, err)
@@ -219,7 +303,7 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 	}
 
 	atomic.AddInt64(&stats.FilesMatched, 1)
-	atomic.AddInt64(&stats.TotalMatches, int64(len(matches)))
+	atomic.AddInt64(&stats.TotalMatches, int64(realMatchCount))
 
 	o.writeMu.Lock()
 	if !opts.FilesWithMatches && !opts.CountOnly {
@@ -229,7 +313,7 @@ func (o *SearchOrchestrator) searchFile(ctx context.Context, path string, matche
 			}
 		}
 	}
-	if werr := o.Sink.WriteFileSummary(path, len(matches)); werr != nil {
+	if werr := o.Sink.WriteFileSummary(path, realMatchCount); werr != nil {
 		fmt.Fprintf(stderr, "officegrep: warning: writing summary for %s: %v\n", path, werr)
 	}
 	o.writeMu.Unlock()
@@ -245,3 +329,60 @@ func typeAllowed(types []string, name string) bool {
 	}
 	return false
 }
+
+// ctxUnit pairs a TextUnit with its sequential position within the
+// current file's unit stream, so context-window bookkeeping (detecting
+// overlap with already-emitted units) doesn't need to retain every unit
+// seen so far — only the small bounded set in contextRing.
+type ctxUnit struct {
+	idx  int
+	unit domain.TextUnit
+}
+
+// contextRing is a small fixed-capacity ring buffer holding the most
+// recently seen TextUnits, used to implement -B/--before-context
+// without buffering a whole file's units in memory: at most
+// opts.ContextBefore units are ever retained at once, regardless of
+// file size.
+type contextRing struct {
+	buf   []ctxUnit
+	start int
+	n     int
+}
+
+// newContextRing returns a ring with room for capacity units (capacity
+// 0 or less means the ring holds nothing and push is a no-op, i.e.
+// -B/-C wasn't requested).
+func newContextRing(capacity int) contextRing {
+	if capacity < 0 {
+		capacity = 0
+	}
+	return contextRing{buf: make([]ctxUnit, capacity)}
+}
+
+// push records u as the most recently seen unit, evicting the oldest
+// entry once the ring is full.
+func (r *contextRing) push(u ctxUnit) {
+	if len(r.buf) == 0 {
+		return
+	}
+	i := (r.start + r.n) % len(r.buf)
+	r.buf[i] = u
+	if r.n < len(r.buf) {
+		r.n++
+	} else {
+		r.start = (r.start + 1) % len(r.buf)
+	}
+}
+
+// items returns the ring's current contents in oldest-to-newest order.
+func (r *contextRing) items() []ctxUnit {
+	out := make([]ctxUnit, r.n)
+	for i := 0; i < r.n; i++ {
+		out[i] = r.buf[(r.start+i)%len(r.buf)]
+	}
+	return out
+}
+
+// reset empties the ring, keeping its allocated capacity.
+func (r *contextRing) reset() { r.start, r.n = 0, 0 }

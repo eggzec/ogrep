@@ -245,6 +245,122 @@ func TestOrchestratorTypeFilter(t *testing.T) {
 	}
 }
 
+// TestOrchestratorContextLines exercises -A/-B/-C context-line
+// accumulation over a small multi-line text fixture, including the
+// tricky case of two matches close enough together that their context
+// windows overlap (line 4, below): it must appear exactly once in the
+// output, not duplicated as both the first match's trailing context and
+// the second match's leading context.
+func TestOrchestratorContextLines(t *testing.T) {
+	dir := t.TempDir()
+	// Line numbers (1-indexed, matching the text plugin's Location.Line):
+	//   1: alpha
+	//   2: beta
+	//   3: TARGET one   (match)
+	//   4: gamma        (trailing context for line 3 AND leading context for line 5)
+	//   5: TARGET two   (match)
+	//   6: delta
+	//   7: epsilon
+	writeFixture(t, filepath.Join(dir, "a.txt"), "alpha\nbeta\nTARGET one\ngamma\nTARGET two\ndelta\nepsilon\n")
+
+	sink := newFakeSink()
+	orch := app.New(newTestRegistry(), walk.New(), match.NewFactory(), sink)
+
+	opts := domain.SearchOptions{ContextBefore: 2, ContextAfter: 2}
+	stats, err := orch.Run(context.Background(), "TARGET", []string{dir}, opts)
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+
+	if stats.TotalMatches != 2 {
+		t.Errorf("TotalMatches = %d, want 2 (context lines must not inflate this)", stats.TotalMatches)
+	}
+	if stats.FilesMatched != 1 {
+		t.Errorf("FilesMatched = %d, want 1", stats.FilesMatched)
+	}
+
+	var gotLines []int
+	var gotHasSpans []bool
+	for _, m := range sink.matches {
+		gotLines = append(gotLines, m.Location.Line)
+		gotHasSpans = append(gotHasSpans, len(m.Spans) > 0)
+	}
+
+	wantLines := []int{1, 2, 3, 4, 5, 6, 7}
+	if len(gotLines) != len(wantLines) {
+		t.Fatalf("got lines %v, want %v (line 4 must appear exactly once, not duplicated)", gotLines, wantLines)
+	}
+	for i := range wantLines {
+		if gotLines[i] != wantLines[i] {
+			t.Fatalf("got lines %v, want %v in that exact order", gotLines, wantLines)
+		}
+	}
+
+	// Only the real matches (line 3 and line 5) should carry non-empty
+	// Spans; every context line uses the empty-Spans convention.
+	wantHasSpans := []bool{false, false, true, false, true, false, false}
+	for i := range wantHasSpans {
+		if gotHasSpans[i] != wantHasSpans[i] {
+			t.Errorf("line %d: hasSpans = %v, want %v", gotLines[i], gotHasSpans[i], wantHasSpans[i])
+		}
+	}
+}
+
+// TestOrchestratorContextLinesAfterOnly checks -A alone (no -B): only
+// trailing context should appear, and it should stop at the requested
+// count even when more non-matching lines follow.
+func TestOrchestratorContextLinesAfterOnly(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, filepath.Join(dir, "a.txt"), "TARGET\nctx1\nctx2\nctx3\nnope\n")
+
+	sink := newFakeSink()
+	orch := app.New(newTestRegistry(), walk.New(), match.NewFactory(), sink)
+
+	stats, err := orch.Run(context.Background(), "TARGET", []string{dir}, domain.SearchOptions{ContextAfter: 2})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if stats.TotalMatches != 1 {
+		t.Errorf("TotalMatches = %d, want 1", stats.TotalMatches)
+	}
+
+	var gotLines []int
+	for _, m := range sink.matches {
+		gotLines = append(gotLines, m.Location.Line)
+	}
+	want := []int{1, 2, 3}
+	if len(gotLines) != len(want) {
+		t.Fatalf("got lines %v, want %v", gotLines, want)
+	}
+	for i := range want {
+		if gotLines[i] != want[i] {
+			t.Fatalf("got lines %v, want %v", gotLines, want)
+		}
+	}
+}
+
+// TestOrchestratorInvertMatchHonorsMaxCount is a regression test for a
+// gap in the pre-existing implementation: -m/--max-count was declared
+// as applying to InvertMatch too, but the invert-match branch
+// `continue`d before ever reaching the MaxCount check, so it was
+// silently ignored whenever -v was combined with -m. Fixed as part of
+// extending searchFile for context lines.
+func TestOrchestratorInvertMatchHonorsMaxCount(t *testing.T) {
+	dir := t.TempDir()
+	writeFixture(t, filepath.Join(dir, "a.txt"), "nope1\nnope2\nnope3\nnope4\n")
+
+	sink := newFakeSink()
+	orch := app.New(newTestRegistry(), walk.New(), match.NewFactory(), sink)
+
+	stats, err := orch.Run(context.Background(), "zzz-never-matches", []string{dir}, domain.SearchOptions{InvertMatch: true, MaxCount: 2})
+	if err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if stats.TotalMatches != 2 {
+		t.Errorf("TotalMatches = %d, want 2 (MaxCount should cap invert-match results too)", stats.TotalMatches)
+	}
+}
+
 // TestOrchestratorFilesWithMatchesAndCountOnly verifies that
 // FilesWithMatches/CountOnly suppress per-match WriteMatch calls while
 // still reporting the correct match count via WriteFileSummary, and

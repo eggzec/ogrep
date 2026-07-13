@@ -35,6 +35,12 @@ If no PATH is given, the current directory is searched. PATTERN is a
 regular expression by default; use -F/--fixed-strings for a literal
 search.
 
+Context lines (-A/-B/-C) and format filtering (--type) work like
+ripgrep's: -C N shows N text units of context on both sides of a match
+(overridden per-side by an explicit -A/-B), and --type restricts the
+search to files recognized by a specific extractor (docx, pptx, xlsx,
+text), independent of file extension.
+
 Config file:
 
   An optional TOML config file is read from
@@ -86,6 +92,10 @@ type cliFlags struct {
 	countOnly        bool
 
 	stats bool
+
+	contextBefore int
+	contextAfter  int
+	context       int
 }
 
 func newRootCmd() *cobra.Command {
@@ -142,6 +152,10 @@ func newRootCmd() *cobra.Command {
 
 	rootCmd.Flags().BoolVar(&flags.stats, "stats", false, "print summary search statistics after the results")
 
+	rootCmd.Flags().IntVarP(&flags.contextBefore, "before-context", "B", 0, "show N text units of context before each match")
+	rootCmd.Flags().IntVarP(&flags.contextAfter, "after-context", "A", 0, "show N text units of context after each match")
+	rootCmd.Flags().IntVarP(&flags.context, "context", "C", 0, "show N text units of context before and after each match (an explicit -A/-B overrides that side)")
+
 	return rootCmd
 }
 
@@ -162,6 +176,20 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 		}
 	}
 
+	// -C/--context sets both sides to the same value, but an explicit
+	// -A/-B for a given side overrides -C for that side only, matching
+	// ripgrep's own convention.
+	contextBefore := flags.contextBefore
+	contextAfter := flags.contextAfter
+	if flags.context > 0 {
+		if !cmd.Flags().Changed("before-context") {
+			contextBefore = flags.context
+		}
+		if !cmd.Flags().Changed("after-context") {
+			contextAfter = flags.context
+		}
+	}
+
 	opts := domain.SearchOptions{
 		IgnoreCase:   flags.ignoreCase,
 		FixedStrings: flags.fixedStrings,
@@ -170,6 +198,9 @@ func runSearch(cmd *cobra.Command, args []string, flags cliFlags, cfg xdg.Config
 		NoIgnore:     flags.noIgnore,
 
 		MaxCount: flags.maxCount,
+
+		ContextBefore: contextBefore,
+		ContextAfter:  contextAfter,
 
 		IncludeGlobs: flags.includeGlobs,
 		ExcludeGlobs: append(append([]string{}, cfg.Ignore...), flags.excludeGlobs...),
