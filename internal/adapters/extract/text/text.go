@@ -1,0 +1,127 @@
+// Package text implements a DocumentExtractor for plain text files. It
+// streams the file line by line, skipping files that look binary (a
+// null byte in the first few KB), mirroring rg's default binary-file
+// skip behavior.
+//
+// The extractor self-registers into the process-wide registry.Default
+// on package init, so importing this package for its side effect (see
+// internal/adapters/extract/all) is enough to make it available.
+package text
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"path/filepath"
+	"strings"
+
+	"officegrep/internal/core/domain"
+	"officegrep/internal/registry"
+)
+
+// sniffWindow is the number of leading bytes inspected to decide whether
+// a file looks binary.
+const sniffWindow = 8192
+
+// maxLineSize bounds how long a single line may be before it's
+// truncated by the scanner's buffer. bufio.Scanner's default token
+// limit (64KB) is too small for some real-world text files (e.g.
+// minified data dumps), so we raise it substantially.
+const maxLineSize = 1024 * 1024 // 1MiB
+
+// Extractor implements ports.DocumentExtractor for plain text files.
+type Extractor struct{}
+
+func init() {
+	registry.Default.Register(Extractor{})
+}
+
+// Name implements ports.DocumentExtractor.
+func (Extractor) Name() string { return "text" }
+
+// Extensions is an optional fast-path hint consumed by the registry; it
+// is not authoritative — Sniff is what actually decides.
+func (Extractor) Extensions() []string {
+	return []string{".txt", ".md", ".log", ".csv", ".json", ".yaml", ".yml", ".xml", ".ini", ".conf", ".cfg", ".go", ".py", ".js", ".ts", ".java", ".c", ".h", ".cpp", ".rs", ""}
+}
+
+// Sniff implements ports.DocumentExtractor. It treats any file that
+// doesn't look binary as plain text; this extractor is intended to be
+// tried as the fallback after the OOXML format extractors have had a
+// chance to claim the file, since the registry's dispatch order tries
+// extension-matched extractors first within the office formats, and
+// text acts as the catch-all.
+func (Extractor) Sniff(path string, ra io.ReaderAt, size int64) bool {
+	// Never claim a zip-based OOXML package, even if the office
+	// extractors somehow didn't run first (e.g. a test using this
+	// extractor in isolation). This keeps behavior sane no matter the
+	// registration order.
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".docx", ".pptx", ".xlsx":
+		return false
+	}
+
+	n := size
+	if n > sniffWindow {
+		n = sniffWindow
+	}
+	if n <= 0 {
+		return true // empty file: treat as (empty) text
+	}
+	buf := make([]byte, n)
+	if _, err := ra.ReadAt(buf, 0); err != nil && err != io.EOF {
+		return false
+	}
+	for _, b := range buf {
+		if b == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Extract implements ports.DocumentExtractor, streaming the file one
+// line at a time.
+func (Extractor) Extract(ctx context.Context, ra io.ReaderAt, size int64) (<-chan domain.TextUnit, <-chan error) {
+	units := make(chan domain.TextUnit)
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(units)
+		defer close(errc)
+
+		sr := io.NewSectionReader(ra, 0, size)
+		scanner := bufio.NewScanner(sr)
+		scanner.Buffer(make([]byte, 0, 64*1024), maxLineSize)
+
+		lineNo := 0
+		for scanner.Scan() {
+			lineNo++
+			line := scanner.Text()
+			unit := domain.TextUnit{
+				Kind: domain.UnitPlainLine,
+				Location: domain.Location{
+					Format: "text",
+					Line:   lineNo,
+					Human:  fmt.Sprintf("line %d", lineNo),
+				},
+				Text: line,
+			}
+			select {
+			case units <- unit:
+			case <-ctx.Done():
+				return
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			select {
+			case errc <- err:
+			default:
+			}
+		}
+	}()
+
+	return units, errc
+}
