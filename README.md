@@ -1,3 +1,5 @@
+![ogrep](assets/ogrep-banner.png)
+
 # ogrep
 
 A ripgrep-style command-line search tool that searches plain text
