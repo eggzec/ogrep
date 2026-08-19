@@ -1,4 +1,4 @@
-![ogrep](assets/ogrep-banner.png)
+![ogrep](https://raw.githubusercontent.com/eggzec/ogrep/main/assets/ogrep-banner.png)
 
 # ogrep
 
